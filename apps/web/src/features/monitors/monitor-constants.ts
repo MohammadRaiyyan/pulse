@@ -1,0 +1,3 @@
+export const CHECK_HISTORY_PAGE_SIZE = 10;
+
+export const RESPONSE_CHART_SAMPLE_SIZE = 50;

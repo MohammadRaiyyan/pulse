@@ -1,0 +1,60 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "env": {
+    "node": true,
+    "es2024": true
+  },
+  "ignorePatterns": [
+    "**/.turbo/**",
+    "**/dist/**",
+    "**/node_modules/**",
+    "**/routeTree.gen.ts"
+  ],
+  "overrides": [
+    {
+      "files": ["apps/web/**/*.{ts,tsx}", "packages/ui/**/*.{ts,tsx}"],
+      "plugins": ["react", "jsx-a11y"],
+      "env": {
+        "browser": true
+      },
+      "rules": {
+        "react/rules-of-hooks": "error",
+        "react/react-in-jsx-scope": "off",
+        "import/no-unassigned-import": [
+          "warn",
+          {
+            "allow": ["**/*.css"]
+          }
+        ],
+        "react/only-export-components": [
+          "warn",
+          {
+            "allowConstantExport": true
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/ui/src/**/*.{ts,tsx}"],
+      "rules": {
+        "react/only-export-components": "off",
+        "jsx-a11y/prefer-tag-over-role": "off",
+        "react/set-state-in-effect": "off",
+        "eslint/no-shadow": "off"
+      },
+      "plugins": ["react", "jsx-a11y"]
+    },
+    {
+      "files": ["apps/web/src/routes/**/*.tsx"],
+      "rules": {
+        "react/only-export-components": "off"
+      },
+      "plugins": ["react", "jsx-a11y"]
+    }
+  ]
+}

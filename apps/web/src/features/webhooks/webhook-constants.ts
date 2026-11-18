@@ -1,0 +1,1 @@
+export const WEBHOOK_EVENTS_PAGE_SIZE = 10;
