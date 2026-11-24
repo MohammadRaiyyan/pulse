@@ -102,7 +102,7 @@ test.describe("team", () => {
 
   test("the owner row is protected", async ({ pageAs }) => {
     const page = await pageAs("owner");
-    await goTo(page, "Team");
+    await page.goto("/team?pageSize=100");
     await expect(tableRow(page, "owner@pulse.dev")).toBeVisible();
     await expect(page.getByLabel("Role for Olivia Owner")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Remove Olivia Owner" })).toHaveCount(0);

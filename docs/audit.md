@@ -11,11 +11,49 @@ Each finding has an ID, a severity and a recommendation. Severity reflects impac
 | Medium   | Real gap that users or operators will hit. Fix soon after launch. |
 | Low      | Polish, hardening, or nice to have. |
 
+## Status (updated after the hardening release)
+
+All Critical, High and Medium findings, and the Low findings planned for Phases 1 to 3, are fixed. Each fix has
+automated tests; the full suite (181 backend tests and 68 end-to-end tests across the API, worker and browser) passes.
+
+| Finding | Status | Resolution |
+| ------- | ------ | ---------- |
+| S-01, L-01 | Fixed | Invite-only after the first owner; OAuth never creates accounts |
+| S-02 | Fixed | Email verification; OAuth links only to verified emails; email change needs the password and re-verification. Unlinking providers on password reset was not added (mitigated by the above) |
+| S-03 | Fixed | Connect-time address checks, manual redirects with per-hop checks, full range list, on in every environment |
+| S-04 | Fixed | Tokens delivered by email only; secret URL parts masked in request logs |
+| S-05, L-13, L-14 | Fixed | Credential headers redacted; event retention and per-endpoint cap; 256 KB body limit; bounded page size |
+| S-06 | Fixed | 128-bit ingest URLs; per-IP ingest limit; unknown slugs rejected without a transaction |
+| S-07 | Fixed | OAuth nonce cookie bound to the browser |
+| S-08 | Fixed | `NODE_ENV` required; production rejects placeholders, insecure cookies and missing SMTP |
+| S-09 | Fixed | `TRUST_PROXY` setting |
+| S-10 | Fixed | Only the owner changes or removes admins |
+| S-11 | Fixed | Advisory lock plus single-owner index; `user:create-owner` CLI |
+| S-12 | Fixed | Login limit keyed on IP plus email |
+| S-13 | Fixed | Conditional reset completion; sibling tokens invalidated |
+| S-14 | Fixed | Atomic monitor limit; per-host check concurrency across workers |
+| S-15 | Fixed | Redirect paths must match `^/(?![/\\])` in the frontend and the contract |
+| S-16 | Fixed locally | Compose binds to 127.0.0.1; production must use managed, authenticated services |
+| L-03 | Fixed | SMTP delivery (Mailpit locally) for resets, invitations, verification and email alerts |
+| L-04, L-05 | Fixed | Verification flow; `GET /api/auth/config` hides unconfigured providers |
+| L-06, L-07 | Fixed | Failure threshold (default 2); warning severity does not page; escalation to critical |
+| L-08, L-11 | Fixed | Incident history kept on delete; pausing resolves the active incident |
+| L-16, L-17, L-18, L-19 | Fixed | Who acted is recorded; active incident counts; resolve warning; per-filter empty states |
+| L-20, L-21, L-22 | Fixed | Honest test alerts; delivery log; signed webhook channels |
+| L-23 | Fixed | Accurate role descriptions |
+| L-24 | Fixed | Live updates with Server-Sent Events |
+| L-26 | Fixed | Worker heartbeat, live/ready/health endpoints, Prometheus metrics, fatal error handling |
+| L-25 | Next phase | Dockerfiles, CI/CD and run book are part of the deployment work |
+| L-02, L-09, L-10, L-12, L-15, L-27 | Deferred | Nice to have: ownership transfer, check headers and body, status ranges and keyword checks, unit-friendly inputs, inbound signature verification, OpenAPI |
+
+The product-depth items in Part 2.9 (status page, integrations page, services, maintenance windows, reports, API keys)
+remain deferred as nice to have.
+
 ## Summary
 
 Pulse is well built at the core: authentication primitives, authorization checks, validation, transactions and the
-background pipeline are sound and covered by 85 automated tests. It is **not ready for a public production launch**.
-Four problems block it:
+background pipeline are sound and covered by 85 automated tests. At the time of the audit it was **not ready for a public production launch**.
+Four problems blocked it (all now fixed; see Status above):
 
 1. Anyone can sign up and read the whole workspace (S-01).
 2. Accounts can be taken over through email-based OAuth linking (S-02, S-07).

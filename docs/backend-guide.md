@@ -23,10 +23,13 @@ For the big picture (requirements, architecture, data model, and the important f
 11. [Caching](#11-caching)
 12. [Rate limiting](#12-rate-limiting)
 13. [Invitations, password reset and OAuth](#13-invitations-password-reset-and-oauth)
-14. [Testing](#14-testing)
-15. [Adding a new feature](#15-adding-a-new-feature)
-16. [Going to production](#16-going-to-production)
-17. [Troubleshooting](#17-troubleshooting)
+14. [Outbound requests and SSRF protection](#14-outbound-requests-and-ssrf-protection)
+15. [Live updates](#15-live-updates)
+16. [Health checks, metrics and logs](#16-health-checks-metrics-and-logs)
+17. [Testing](#17-testing)
+18. [Adding a new feature](#18-adding-a-new-feature)
+19. [Going to production](#19-going-to-production)
+20. [Troubleshooting](#20-troubleshooting)
 
 ---
 
@@ -65,7 +68,7 @@ both import them, so they cannot drift apart.
 You need Node 26, pnpm and Docker.
 
 ```bash
-docker compose up -d                       # PostgreSQL 18 on 5432, Redis 8 on 6379
+docker compose up -d                       # PostgreSQL 18 on 5432, Redis 8 on 6379, Mailpit on 1025/8025
 cp apps/api/.env.example apps/api/.env     # then put real secrets in it, see below
 pnpm install
 
@@ -78,6 +81,9 @@ pnpm --filter web dev                      # terminal 3: frontend on http://loca
 ```
 
 Generate the two secrets with `openssl rand -base64 48` and paste them into `JWT_SECRET` and `INVITE_SECRET`.
+`.env.example` already sets the local-only values you need: `NODE_ENV=development`, `OWNER_SIGNUP_ENABLED=true`,
+`ALLOW_PRIVATE_NETWORK_TARGETS=true` (so monitors can target localhost) and SMTP pointing at Mailpit. Every email the
+app sends (invitations, verification, password resets, email alerts) lands in Mailpit at http://localhost:8025.
 
 Open http://localhost:5173 and sign in as `owner@pulse.dev` / `password123`. The other demo users are
 `admin@pulse.dev`, `member@pulse.dev` and `viewer@pulse.dev`, all with the same password.
@@ -93,7 +99,8 @@ Useful commands:
 | `pnpm --filter api typecheck`    | Type-checks without running                              |
 | `pnpm --filter api db:generate`  | Creates a new migration after you change a model         |
 | `pnpm --filter api db:studio`    | Opens a browser UI for the database                      |
-| `curl localhost:3000/api/health` | Shows whether PostgreSQL and Redis are reachable         |
+| `curl localhost:3000/api/health` | Shows whether PostgreSQL, Redis and the worker are healthy |
+| `pnpm --filter api user:create-owner` | Creates the first owner (production bootstrap)      |
 
 ---
 
@@ -370,7 +377,13 @@ Never edit a migration that has already been applied somewhere. Write a new one.
 | `linked_accounts_provider_account_unique` | unique on `(provider, provider_account_id)`             | A GitHub or Google account belongs to one Pulse user                        |
 | `check_results_monitor_time_idx`      | index on `(monitor_id, checked_at desc)`                    | "Checks for this monitor, newest first" reads straight from the index       |
 | `monitors_due_idx`                    | index on `(is_paused, last_checked_at)`                     | The worker finds due monitors every 15 seconds                              |
+| `users_single_owner`                  | unique on `role` where `role = 'owner'`                     | There can only ever be one owner                                            |
+| `monitors_failure_threshold_range`    | check `failure_threshold between 1 and 10`                  | The confirmation setting stays sensible                                    |
 | foreign keys with `on delete cascade` | e.g. deleting a monitor deletes its checks and channel links | No orphaned rows, no cleanup code                                         |
+
+Incidents are the exception: they have no foreign key to their source, and deleting a monitor or webhook keeps them
+(resolved with reason `source_deleted` and marked with `source_deleted_at`), because they are the record of past
+outages.
 
 ---
 
@@ -540,12 +553,35 @@ POSTs), `secure` in production (HTTPS only) and `path: "/api/auth"` (only sent t
 
 | Endpoint                         | Notes                                                                       |
 | -------------------------------- | --------------------------------------------------------------------------- |
-| `POST /api/auth/register`        | First user ever becomes `owner`, everyone after is `viewer`. 201.           |
+| `GET /api/auth/config`           | Whether sign-up is open and which OAuth providers are configured.           |
+| `POST /api/auth/register`        | Creates the first owner only, when the database is empty and `OWNER_SIGNUP_ENABLED` is on. Otherwise 403 "Pulse is invite-only". |
+| `POST /api/auth/email/verify`    | Consumes a verification token (24 h, single use).                            |
+| `POST /api/me/email/verification` | Sends a new verification email (3 per 10 minutes).                          |
 | `POST /api/auth/login`           | Rate limited. Same 401 for unknown email and wrong password.                |
 | `POST /api/auth/refresh`         | Rotates the cookie. 401 clears the cookie.                                  |
 | `POST /api/auth/logout`          | Revokes the current session. Works with an expired access token.            |
 | `POST /api/auth/logout-all`      | Revokes every session of the user.                                          |
 | `POST /api/me/password`          | Verifies the current password, revokes all sessions, issues a fresh cookie. |
+| `PATCH /api/me`                  | Changing the email requires `currentPassword` and makes the email unverified until verified. |
+
+### Invite-only workspace and owner bootstrap
+
+Pulse has exactly one workspace. Once any account exists, the only way in is an invitation, and OAuth sign-in never
+creates accounts. The first owner is created atomically: the insert takes a PostgreSQL advisory lock, checks the users
+table is empty, and a partial unique index (`users_single_owner`) guarantees there can never be two owners.
+
+```bash
+OWNER_PASSWORD='a-long-password' pnpm --filter api user:create-owner --email you@example.com --name "Your Name"
+```
+
+Use the CLI in production. `OWNER_SIGNUP_ENABLED=true` lets the very first sign-up through the web page instead; it is
+on in `.env.example` for local setup and should stay off in production.
+
+### Email verification
+
+Sign-up and email changes send a verification link; joining through an invitation counts as verified, because the link
+arrived at that address. Verification matters for account linking: OAuth links to an existing account by email only
+when that account's email is verified, which closes account pre-hijacking (someone registering your address first).
 
 ---
 
@@ -586,6 +622,7 @@ Rules about specific records live in services:
 | The owner can never be changed or removed    | `member.service.ts`       | `WHERE role <> 'owner'` in the update and delete         |
 | You cannot change your own role or remove yourself | `member.service.ts` | compare ids before writing                              |
 | Nobody can be made owner                     | contract                  | `assignableRoleSchema` rejects `owner` with a 400        |
+| Only the owner changes or removes an admin   | `user.repository.ts`      | role condition in the update and delete `WHERE` clause   |
 | A disabled channel cannot send a test alert  | `alert-channel.service.ts` | `409`                                                  |
 
 The frontend hides buttons a role cannot use, but that is only convenience. The server enforces every rule, because
@@ -612,10 +649,10 @@ code would take the API down. The worker does slow work; the API only puts jobs 
 | Job                      | When                    | What it does                                                                    |
 | ------------------------ | ----------------------- | ------------------------------------------------------------------------------- |
 | `dispatch-due-checks`    | every 15 s              | Finds monitors whose interval has passed and enqueues one `run-check` each       |
-| `run-check`              | enqueued by the above   | Calls the URL, saves the result, updates uptime, opens or resolves an incident   |
+| `run-check`              | enqueued by the above   | Takes a per-host slot, calls the URL, saves the result, updates uptime and the failure counter, opens or resolves an incident |
 | `detect-silent-webhooks` | every 60 s              | Marks webhooks with no event inside their window as `silent`, opens incidents    |
 | `send-alert`             | when an incident opens or resolves, or on "test" | Delivers to one channel, retried 5 times with exponential backoff |
-| `cleanup`                | daily at 03:00          | Deletes checks older than 30 days, old sessions, used reset tokens               |
+| `cleanup`                | daily at 03:00          | Deletes old checks, webhook events past retention or over the cap, old deliveries, sessions and used tokens |
 
 Schedules are stored in Redis, not in a `setInterval`, so they survive restarts and run once even with several workers.
 
@@ -625,8 +662,8 @@ Background work must be idempotent: running it twice should not double the effec
 
 - `run-check` jobs get a deterministic id, `check-<monitorId>-<interval bucket>`. BullMQ ignores a second job with the
   same id, so a slow check is never queued twice.
-- Opening an incident is a plain insert. If an active incident already exists for that source, the partial unique index
-  `incidents_one_active_per_source` rejects it and the code treats that as "already open". No duplicate alerts.
+- Opening an incident is an insert with `ON CONFLICT DO NOTHING`. If an active incident already exists for that source,
+  the partial unique index `incidents_one_active_per_source` makes it a no-op. No duplicate alerts.
 - Resolving is `UPDATE ... WHERE source_id = $1 AND status <> 'resolved' RETURNING`. If nothing comes back, there was
   nothing to resolve.
 
@@ -640,14 +677,48 @@ Background work must be idempotent: running it twice should not double the effec
 | Expected status, slower than half the timeout | `degraded` |
 | Different status, timeout, connection error | `down`    |
 
-`saveCheckResult` inserts the result and recomputes the 24-hour uptime in the same transaction, so the monitor list
-never has to compute it ("precompute on write, read cheaply").
+`saveCheckResult` inserts the result, recomputes the 24-hour uptime and updates `consecutive_failures` in the same
+transaction, so the monitor list never has to compute it ("precompute on write, read cheaply").
+
+### From failed check to incident
+
+- **Confirmation.** Each monitor has `failureThreshold` (1 to 10, default 2). The status shown changes on every check, but
+  an incident opens only when `consecutive_failures` reaches the threshold. One successful check resolves it.
+- **Severity.** Down and silent webhooks are `critical` and page the team. Degraded (slow) opens a `warning` that does
+  not page. If a monitor with an active warning goes down, the same incident escalates to critical and pages at that
+  moment.
+- **Automatic resolution.** Recovery (`recovered`), pausing (`monitor_paused`) and deleting the source
+  (`source_deleted`) resolve the active incident. Deleting keeps the incident history.
+- **Who acted.** Acknowledge and resolve record the member's id and name; automatic resolutions record the reason.
+- **Per-host limit.** At most `CHECK_MAX_CONCURRENCY_PER_HOST` checks run against one hostname at a time, across all
+  worker processes (a Redis semaphore with leases). A job that cannot get a slot is delayed for 2 to 4 seconds instead of
+  holding a worker slot.
 
 ### Alerts
 
-One job per channel, so a broken Slack URL retries on its own without re-sending the email. Slack gets `{ "text": ... }`,
-webhooks get `{ event, message, incident, sentAt }`. Email is written to the worker log; plug a provider in
-`alert-delivery.service.ts` when you have one.
+Only critical incidents notify: when one opens (or a warning escalates) and when one recovers. One job per channel, so a
+broken Slack URL retries on its own without re-sending the email.
+
+| Channel | Delivery |
+| ------- | -------- |
+| Email | `sendEmail` over SMTP (`src/lib/mailer.ts`, templates in `src/lib/email-templates.ts`) |
+| Slack | `POST { "text": ... }` through `safeFetch` |
+| Webhook | `POST { event, message, incident, sentAt }` through `safeFetch`, signed |
+
+Every delivery is recorded in `alert_deliveries` (status `success`, `retrying` or `failed`, attempts, last error). Each
+channel shows its last delivery in the UI; `GET /api/alert-channels/:id/deliveries` lists the history, kept 30 days.
+"Send test alert" runs the same delivery code synchronously (5-second timeout, 10 per minute per user) and reports
+whether it was delivered.
+
+Webhook channels are signed so receivers can verify the request came from Pulse:
+
+```
+X-Pulse-Timestamp: 1795505186
+X-Pulse-Signature: v1=<hex HMAC-SHA256(signing secret, "<timestamp>.<raw body>")>
+```
+
+Receivers should recompute the HMAC over the timestamp and the raw body, compare in constant time, and reject old
+timestamps. The secret (`whsec_...`) can be copied and rotated by users with `alert-channel:write`.
 
 ---
 
@@ -673,21 +744,28 @@ Do not cache things where stale data is dangerous, such as whether a session is 
 `src/middleware/rate-limit.ts` is a fixed-window counter in Redis: `INCR` the key, set its expiry on the first hit,
 reject when the count passes the limit. Redis counters are atomic, so the limit holds across several API instances.
 
-| Route                         | Limit       | Counted per |
-| ----------------------------- | ----------- | ----------- |
-| `POST /auth/login`            | 5 / minute  | email       |
-| `POST /auth/login`            | 20 / minute | IP          |
-| `POST /auth/register`         | 10 / hour   | IP          |
-| `POST /auth/password/forgot`  | 3 / minute  | email       |
-| OAuth endpoints               | 20 / minute | IP          |
-| Invitation preview and accept | 30 / minute | IP          |
-| `ANY /hooks/:slug`            | 120 / minute | slug       |
-| Everything under `/api`       | 300 / minute | IP         |
+| Route                         | Limit         | Counted per |
+| ----------------------------- | ------------- | ----------- |
+| `POST /auth/login`            | 5 / minute    | IP + email  |
+| `POST /auth/login`            | 20 / minute   | IP          |
+| `POST /auth/register`         | 10 / hour     | IP          |
+| `POST /auth/password/forgot`  | 3 / minute    | email       |
+| `POST /auth/email/verify`     | 20 / 10 min   | IP          |
+| `POST /me/email/verification` | 3 / 10 min    | user        |
+| OAuth endpoints               | 20 / minute   | IP          |
+| Invitation preview and accept | 30 / minute   | IP          |
+| `POST /alert-channels/:id/test` | 10 / minute | user        |
+| `ANY /hooks/:slug`            | 600 / minute  | IP (configurable) |
+| `ANY /hooks/:slug`            | 120 / minute  | slug (configurable) |
+| Everything under `/api`       | 300 / minute  | IP (configurable) |
+
+The login limit is keyed on IP plus email, so a third party cannot lock someone out of their account from elsewhere.
 
 A blocked request gets `429` and a `Retry-After` header; the login form shows "Try again in 41s."
 
-`app.set("trust proxy", 1)` makes `req.ip` the real client IP behind one proxy (the Vite proxy in development, a load
-balancer in production).
+`req.ip` is only trustworthy if Express knows which proxies may set `X-Forwarded-For`. That is the `TRUST_PROXY` setting
+(`false`, a hop count, or IPs and CIDRs; default `loopback`). Set it to your load balancer's address range in
+production; if it is wrong, every IP-based limit is either bypassable or shared by all users.
 
 ---
 
@@ -705,19 +783,21 @@ balancer in production).
 4. `POST /api/invitations/accept` marks the invitation accepted and creates the user in one transaction, then signs them
    in.
 
-In development the invite link is printed in the API log.
+The invitation is emailed to the invitee. If sending fails, the invitation is still created and the response says
+`emailSent: false`, so the admin can copy the link from the team list. Links are never written to logs.
 
 ### Password reset
 
 `POST /api/auth/password/forgot` always answers `204`, whether or not the email exists, so it cannot be used to find
 accounts. If the user exists, a random token is created (stored as a hash, valid for 30 minutes) and the reset link is
-printed in the API log. `POST /api/auth/password/reset` sets the new password, marks the token used and revokes every
-session, all in one transaction.
+emailed; the email is sent without waiting, so response timing is the same either way. `POST /api/auth/password/reset`
+sets the new password with a conditional update (`used_at IS NULL`), invalidates the user's other reset tokens and
+revokes every session, all in one transaction, so a token can be used exactly once even under concurrent requests.
 
 ### OAuth with GitHub and Google
 
-The buttons work once you register OAuth apps and fill the four `*_CLIENT_ID` / `*_CLIENT_SECRET` variables. Without
-them the endpoints answer `404 "Sign-in with github is not configured on this server"`.
+The buttons appear once you register OAuth apps and fill the four `*_CLIENT_ID` / `*_CLIENT_SECRET` variables; the
+frontend reads `GET /api/auth/config` and hides unconfigured providers.
 
 | | GitHub | Google |
 |---|---|---|
@@ -726,16 +806,71 @@ them the endpoints answer `404 "Sign-in with github is not configured on this se
 
 The flow (`src/modules/oauth/`):
 
-1. `authorize` creates a random `state` and a PKCE `codeVerifier`, stores them in Redis for 10 minutes and returns the
-   provider URL. `state` stops login CSRF; PKCE stops a stolen code from being used.
+1. `authorize` creates a random `state`, a PKCE `codeVerifier` and a browser nonce. The nonce goes into an httpOnly
+   `pulse_oauth_nonce` cookie scoped to the callback path; its hash is stored with the state in Redis for 10 minutes.
+   `state` plus the nonce stop login CSRF (a callback link crafted by someone else fails in your browser); PKCE stops a
+   stolen code from being used.
 2. The provider sends the browser back to the frontend, which posts `code` and `state` to `callback`.
-3. `callback` reads and deletes the state (`GETDEL`, single use), exchanges the code, fetches a **verified** email and
-   finds or creates the user. Unverified emails are refused, otherwise someone could claim your email on the provider
-   and take over your account.
+3. `callback` checks the nonce cookie, reads and deletes the state (`GETDEL`, single use), exchanges the code and fetches
+   a **verified** email. It signs in the member linked to that provider account, or links to the account with that email
+   if the account's email is verified. It never creates accounts, except the very first owner on an empty database when
+   owner sign-up is enabled.
 
 ---
 
-## 14. Testing
+## 14. Outbound requests and SSRF protection
+
+Monitors and webhook alert channels make Pulse call URLs that users type in. Without care, a member could point a
+monitor at `http://169.254.169.254/` (cloud credentials) or an internal service and read the result through check
+history. All outbound requests therefore go through `safeFetch` (`src/lib/outbound-http.ts`):
+
+- The address is checked **at connect time**, inside the HTTP client's DNS lookup, so a hostname that resolves to a
+  private address (or changes its answer between two lookups) is refused.
+- Redirects are followed by hand, at most 5 hops, and every hop is checked again. Only `http` and `https` are allowed.
+- Private, loopback, link-local, carrier-grade NAT, documentation, benchmark, multicast and reserved ranges are blocked
+  for IPv4 and IPv6, including IPv4-mapped IPv6 addresses.
+- Connections are not reused, responses are capped at 1 MB, and one timeout covers DNS, connect and response.
+
+A blocked check is recorded as down with "Blocked: private network address". The protection is on in every
+environment; `ALLOW_PRIVATE_NETWORK_TARGETS=true` turns it off for local development and the E2E suite, where monitors
+target localhost. Never set it in production.
+
+## 15. Live updates
+
+Open pages update by themselves. The API serves a Server-Sent Events stream at `GET /api/events`
+(`src/modules/events/`). Services call `publishChange({ type, id })` after a write (`src/lib/realtime.ts`), which
+publishes to a Redis channel; every API process subscribes once and forwards each change to its connected browsers. The
+worker publishes the same way, so a check finishing in the worker reaches every open dashboard.
+
+Events carry only a type and an id. The frontend (`apps/web/src/features/live-updates`) maps each type to the queries it
+affects and refetches the ones on screen through the normal endpoints, so permissions stay in one place. The stream
+requires a valid access token, re-checks revocation every heartbeat (25 seconds), and closes when the token expires; the
+client refreshes and reconnects with backoff, then refetches active queries to cover anything missed. Each user may hold
+5 streams per API process.
+
+If a reverse proxy sits in front of the API, disable buffering and compression for `/api/events`. The full design
+rationale (and why SSE rather than polling or WebSockets) is in the system design document.
+
+## 16. Health checks, metrics and logs
+
+| Endpoint | Use | Healthy | Unhealthy |
+| -------- | --- | ------- | --------- |
+| `GET /api/health/live` | Process restarts (liveness) | 200 always | n/a |
+| `GET /api/health/ready` | Load balancer routing (readiness) | 200 when PostgreSQL and Redis answer within 2 s | 503 |
+| `GET /api/health` | External uptime check of the whole system | 200 with `worker: "up"` | 503 `"degraded"` when the database, Redis or the worker is not healthy |
+| `GET /metrics` | Prometheus scrape (outside `/api`) | 200 with `Authorization: Bearer <METRICS_TOKEN>` | 401 bad token; 404 when `METRICS_TOKEN` is unset |
+
+The worker writes a heartbeat to Redis every 5 seconds; it counts as stale after 30. Metrics include process metrics,
+HTTP request count and duration by method, route pattern and status, queue depth per queue, completed and failed jobs per
+queue and job name, check outcomes, and heartbeat age. The worker has no HTTP server: it increments counters in Redis
+and the API reads them when Prometheus scrapes.
+
+Logs are JSON when output is not a terminal. Authorization headers, cookies and `Set-Cookie` are redacted, request URLs
+with secrets (`/api/invitations/preview/:token`, `/hooks/:slug`, `token`, `code` and `state` query values) are masked,
+and reset or invite links are never logged. Uncaught exceptions are logged at fatal level and the process exits, so the
+process manager restarts it.
+
+## 17. Testing
 
 There are two layers. This section covers the backend's own tests; the end-to-end suite in `e2e/` (the running API and
 worker, plus the browser) is described in the [README](../README.md#end-to-end-tests).
@@ -748,23 +883,37 @@ Tests run against a separate database, `pulse_test` (created by `apps/api/docker
 container first starts), and Redis database 1. Settings are in `vitest.config.ts`, so tests work on a fresh clone and in
 CI without a `.env` file. `src/test/setup.ts` applies migrations once and empties every table before each test.
 
-| File                                  | What it proves                                                              |
-| ------------------------------------- | --------------------------------------------------------------------------- |
-| `modules/auth/auth.test.ts`           | owner bootstrap, duplicate email, same 401 for both login failures, rotation, reuse detection, rate limit |
-| `middleware/authenticate.test.ts`     | 401 without or with a forged token, viewer and member permissions           |
-| `modules/monitors/monitor.test.ts`    | validation errors, unknown channel, full CRUD, malformed id                 |
-| `modules/monitors/http-check.test.ts` | up, down, degraded and timeout against a local HTTP server                  |
-| `modules/incidents/incident.test.ts`  | one active incident per source, resolve on recovery, transition rules       |
+| File | What it proves |
+| ---- | -------------- |
+| `config/env.test.ts` | `NODE_ENV` required, production rules (secrets, cookies, SMTP), `TRUST_PROXY` parsing |
+| `lib/logger.test.ts` | secret paths and query values are masked in request logs |
+| `lib/mailer.test.ts` | SMTP and file transports, templates, disabled delivery |
+| `lib/outbound-http.test.ts` | blocked ranges, IP literals, IPv4-mapped IPv6, DNS answers, redirect hops, schemes |
+| `lib/sse-parser.test.ts` | the shared Server-Sent Events parser handles split chunks and line endings |
+| `middleware/authenticate.test.ts` | 401 without or with a forged token, viewer and member permissions |
+| `modules/auth/auth.test.ts` | invite-only sign-up, single owner, generic login errors, rotation and reuse detection, immediate revocation, rate limits, emailed reset links, reset token races |
+| `modules/auth/email-verification.test.ts` | verification tokens, resend limits, invited users verified, email change needs the password |
+| `modules/oauth/oauth.test.ts` | nonce cookie required, linking only to verified emails, no account creation |
+| `modules/alert-channels/alert-channel.test.ts` | signed webhook delivery, honest test alerts, delivery log, signing secret rotation |
+| `modules/events/live-stream.test.ts` | stream authentication, fan-out, heartbeats, closing after sign-out everywhere, per-user cap |
+| `modules/health/health.test.ts` | live, ready and health responses, worker heartbeat |
+| `modules/metrics/metrics.test.ts` | token protection and route-pattern labels |
+| `modules/monitors/monitor.test.ts` | validation errors, unknown channel, full CRUD, malformed id |
+| `modules/monitors/http-check.test.ts` | up, down, degraded, timeout and blocked targets |
+| `modules/monitors/monitor-limits.test.ts` | atomic monitor limit under concurrent creates, per-host slots and deferral |
+| `modules/incidents/incident.test.ts` | failure threshold, severity and escalation, who acted, active counts, history kept, pause resolves |
 | `modules/invitations/invitation.test.ts` | invite, preview, accept, tampered token, duplicate, revoke, re-invite after expiry |
-| `modules/members/member.test.ts`      | owner and self protection, role change takes effect immediately             |
-| `modules/webhooks/webhook.test.ts`    | raw payload is stored exactly, unknown slug is 404                          |
+| `modules/invitations/invitation-email.test.ts` | a failed invitation email is reported as `emailSent: false` |
+| `modules/members/member.test.ts` | owner, self and admin-on-admin protection, role changes apply immediately |
+| `modules/webhooks/webhook.test.ts` | payload stored, silence detection and recovery, unknown slug is 404 |
+| `modules/webhooks/webhook-ingest.test.ts` | header redaction, slug entropy, per-IP limit, body limit, retention and per-endpoint cap |
 
 Most tests go through real HTTP (`src/test/client.ts` starts the app on a random port), so they cover routes,
 middleware, validation, services, the database and the error handler together.
 
 ---
 
-## 15. Adding a new feature
+## 18. Adding a new feature
 
 Say you want "maintenance windows" for monitors.
 
@@ -782,37 +931,34 @@ Say you want "maintenance windows" for monitors.
 
 ---
 
-## 16. Going to production
+## 19. Going to production
 
 Already handled:
 
-- Environment validated at startup; secrets come only from the environment.
-- `helmet` security headers, `cors` locked to `APP_URL` with credentials, `x-powered-by` off.
-- JSON bodies limited to 100 KB, webhook bodies to 1 MB.
-- Structured JSON logs (`pino`) with `Authorization`, cookies and `Set-Cookie` redacted; request logging via `pino-http`.
-  Logs are pretty-printed only in an interactive terminal; when output is piped (containers, log collectors, the E2E
-  suite) they are one JSON object per line.
-- Generic error messages in production; stack traces only in logs.
-- `secure` cookies in production.
-- Graceful shutdown on `SIGTERM` for both processes: stop taking work, finish in-flight work, close connections.
-- `GET /api/health` returns `503` when PostgreSQL or Redis is down, for load balancer checks.
-- SSRF guard (`src/lib/outbound-url.ts`): in production, checks and alert webhooks refuse private, loopback and
-  link-local addresses.
-- Completed and failed jobs are trimmed (last 100 and 500 kept) so Redis does not grow forever.
-- Data retention: old checks, sessions and reset tokens are deleted daily.
+- Configuration fails closed: `NODE_ENV` is required, production rejects placeholder secrets, insecure cookies and a
+  missing SMTP setup, and the seed script refuses to run outside development and test.
+- `helmet` security headers, CORS limited to `APP_URL` with credentials, `x-powered-by` off.
+- Body limits: JSON 100 KB, webhook ingest 256 KB (configurable).
+- Invite-only workspace, email verification, OAuth with nonce cookie and verified-email linking.
+- SSRF protection on every outbound request, in every environment.
+- Secrets redacted from logs and from stored webhook headers; JSON logs.
+- Health, readiness and liveness endpoints; worker heartbeat; Prometheus metrics behind a token.
+- Graceful shutdown on `SIGTERM`: live streams close, in-flight requests and jobs finish, connections close.
+- Retention: checks, webhook events (plus a per-endpoint cap), alert deliveries, sessions and tokens; trimmed job history.
+- Abuse limits: monitor limit (atomic), per-host check concurrency, rate limits on every public and expensive endpoint.
 
-Still to do for a real deployment:
+For each deployment:
 
-- Run `pnpm --filter api db:migrate` as a release step before starting new API instances.
-- Plug in an email provider for alerts, invitations and password resets (they are logged today).
-- Serve over HTTPS and set `NODE_ENV=production`.
-- Put the API behind exactly one proxy (or change `trust proxy` to match).
-- The SSRF guard checks the address before connecting; a hostile DNS server could still answer differently on the
-  second lookup (DNS rebinding). For strong isolation, run the worker in a network that cannot reach internal services.
+- Set `NODE_ENV=production`, real `JWT_SECRET` and `INVITE_SECRET`, `APP_URL`, `TRUST_PROXY` matching the load balancer,
+  SMTP settings and `MAIL_FROM`, and `METRICS_TOKEN` if you scrape metrics.
+- Run `pnpm --filter api db:migrate` as a release step before starting new instances.
+- Create the first owner with `pnpm --filter api user:create-owner`; keep `OWNER_SIGNUP_ENABLED` off.
+- Use managed PostgreSQL and Redis with authentication and TLS (the Docker Compose file is for local development only).
+- Serve over HTTPS (HTTP/2 recommended for live updates) and disable proxy buffering for `/api/events`.
+- Point load balancers at `/api/health/ready`, restarts at `/api/health/live`, and an external uptime check at
+  `/api/health`.
 
----
-
-## 17. Troubleshooting
+## 20. Troubleshooting
 
 **"Unable to reach the server" in the frontend.** The API is not running on port 3000, or it crashed on startup. Read
 its terminal. `curl localhost:3000/api/health` should answer.
@@ -825,7 +971,20 @@ port 3000 directly. In DevTools → Application → Cookies, `pulse_refresh` sho
 **Monitors stay `pending`.** The worker is not running, or Redis is down. Start `pnpm --filter api worker` and check
 `docker compose ps`.
 
-**`Invalid environment variables` on startup.** The message names the variable. Compare `.env` with `.env.example`.
+**`Invalid environment variables` on startup.** The message names the variable. Compare `.env` with `.env.example`. An
+`.env` created before the hardening release is missing `NODE_ENV`, which is now required.
+
+**Local monitors show "Blocked: private network address".** Add `ALLOW_PRIVATE_NETWORK_TARGETS=true` to your local
+`.env`. Production must leave it off.
+
+**Sign-up says "Pulse is invite-only".** An account already exists. Ask an owner or admin for an invitation, or on a
+fresh database set `OWNER_SIGNUP_ENABLED=true` (or use `pnpm --filter api user:create-owner`).
+
+**No email arrives.** Locally, open Mailpit at http://localhost:8025. In production, check the SMTP settings and the
+alert channel's last delivery error in the UI.
+
+**The header shows "Reconnecting".** The live updates stream dropped; it retries on its own. Behind a proxy, disable
+buffering and compression for `/api/events`.
 
 **`ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`.** You used `enum`, `namespace` or a parameter property, or a relative import
 without `.ts`. Run `pnpm --filter api typecheck`.

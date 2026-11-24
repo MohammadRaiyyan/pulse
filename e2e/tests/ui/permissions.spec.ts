@@ -44,7 +44,7 @@ test.describe("role-based UI", () => {
 
   test("admin manages the team but cannot touch the owner or themself", async ({ pageAs }) => {
     const page = await pageAs("admin");
-    await goTo(page, "Team");
+    await page.goto("/team?pageSize=100");
 
     await expect(page.getByRole("button", { name: "Invite member" }).first()).toBeVisible();
     await expect(page.getByLabel("Role for Maya Member")).toBeVisible();

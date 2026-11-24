@@ -16,7 +16,7 @@ export const createAlertSink = async (owner: ApiClient) => {
   });
 
   const receivedAlerts = async () => {
-    const events = await owner.get(`/webhooks/${sink.body.id}/events?pageSize=100`);
+    const events = await owner.get(`/webhooks/${sink.body.id}/events?pageSize=25`);
     return events.body.items.map((event: { body: string }) => JSON.parse(event.body));
   };
 
