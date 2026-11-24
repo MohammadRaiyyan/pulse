@@ -111,8 +111,19 @@ const replaceChannelLinks = async (
   }
 };
 
-export const insertMonitor = (input: CreateMonitorInput) =>
+export const insertMonitorWithinLimit = (
+  input: CreateMonitorInput,
+  maxMonitors: number,
+) =>
   db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('monitors_limit'))`);
+
+    const [existing] = await tx.select({ total: count() }).from(monitors);
+
+    if ((existing?.total ?? 0) >= maxMonitors) {
+      return undefined;
+    }
+
     const { alertChannelIds, ...values } = input;
     const [monitor] = await tx.insert(monitors).values(values).returning();
 
@@ -256,7 +267,3 @@ export const deleteChecksOlderThan = async (date: Date) => {
   await db.delete(checkResults).where(lt(checkResults.checkedAt, date));
 };
 
-export const countMonitors = async () => {
-  const [row] = await db.select({ total: count() }).from(monitors);
-  return row?.total ?? 0;
-};

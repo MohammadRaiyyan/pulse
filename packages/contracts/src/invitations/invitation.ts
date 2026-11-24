@@ -34,6 +34,7 @@ export const invitationSchema = createInvitationSchema.extend({
   invitedBy: userRefSchema,
   expiresAt: timestampSchema,
   createdAt: timestampSchema,
+  emailSent: z.boolean().optional(),
 });
 
 export type Invitation = z.infer<typeof invitationSchema>;

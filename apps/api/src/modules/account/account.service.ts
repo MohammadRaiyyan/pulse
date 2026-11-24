@@ -4,6 +4,7 @@ import type {
   UpdateProfileInput,
 } from "@pulse/contracts";
 import { badRequest, conflict, notFound } from "../../lib/errors.ts";
+import { publishChange } from "../../lib/realtime.ts";
 import { hashPassword, verifyPassword } from "../../security/passwords.ts";
 import { rejectAccessTokensIssuedBeforeNow } from "../../security/session-revocation.ts";
 import { startSession } from "../auth/auth.service.ts";
@@ -69,6 +70,7 @@ export const updateProfile = async (
   }
 
   await forgetCachedUser(user.id);
+  publishChange({ type: "member.updated", id: user.id });
 
   if (isEmailChange) {
     await trySendVerificationEmail(updated);

@@ -3,7 +3,7 @@ import { env } from "../../config/env.ts";
 import { acquireHostSlot } from "../../lib/host-concurrency.ts";
 import { registerUser, request, useTestServer } from "../../test/client.ts";
 import { runCheckWithHostLimit } from "./check-runner.service.ts";
-import { insertMonitor, listChecks } from "./monitor.repository.ts";
+import { insertMonitorWithinLimit, listChecks, listMonitors } from "./monitor.repository.ts";
 
 useTestServer();
 
@@ -28,6 +28,22 @@ const monitorInput = (name: string) => ({
 });
 
 describe("monitor quota", () => {
+  it("never exceeds the limit when many monitors are created at once", async () => {
+    env.MAX_MONITORS_PER_WORKSPACE = 3;
+    const { token } = await registerUser("Owner", "owner@test.dev");
+
+    const responses = await Promise.all(
+      Array.from({ length: 8 }, (_, index) =>
+        request("/api/monitors", { method: "POST", token, body: monitorInput(`Burst ${index}`) }),
+      ),
+    );
+
+    const statuses = responses.map((response) => response.status);
+    expect(statuses.filter((status) => status === 201)).toHaveLength(3);
+    expect(statuses.filter((status) => status === 409)).toHaveLength(5);
+    expect((await listMonitors({ page: 1, pageSize: 100 }, 100, 0)).total).toBe(3);
+  });
+
   it("rejects new monitors once the workspace limit is reached", async () => {
     env.MAX_MONITORS_PER_WORKSPACE = 2;
     const { token } = await registerUser("Owner", "owner@test.dev");
@@ -81,7 +97,12 @@ describe("host concurrency", () => {
 
   it("defers a check while its host is at the limit", async () => {
     env.CHECK_MAX_CONCURRENCY_PER_HOST = 1;
-    const monitor = await insertMonitor(monitorInput("Busy host"));
+    const monitor = await insertMonitorWithinLimit(monitorInput("Busy host"), 100);
+
+    if (!monitor) {
+      throw new Error("expected the monitor to be created");
+    }
+
     const held = await acquireHostSlot("127.0.0.1", 1, 10_000);
 
     expect(await runCheckWithHostLimit(monitor.id)).toBe("host-busy");

@@ -118,16 +118,19 @@ export const createInvitation = async (
     expiresInDays: INVITATION_TTL_DAYS,
   });
 
-  await sendEmail({ to: created.email, ...content }).catch((error: unknown) => {
-    logger.error(
-      { invitationId: created.id, err: error },
-      "Invitation email could not be sent",
-    );
-  });
+  const emailSent = await sendEmail({ to: created.email, ...content })
+    .then(() => true)
+    .catch((error: unknown) => {
+      logger.error(
+        { invitationId: created.id, err: error },
+        "Invitation email could not be sent",
+      );
+      return false;
+    });
 
   publishChange({ type: "invitation.updated", id: created.id });
 
-  return created;
+  return { ...created, emailSent };
 };
 
 export const revokeInvitation = async (id: string) => {

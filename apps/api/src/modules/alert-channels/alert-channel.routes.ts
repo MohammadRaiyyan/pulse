@@ -3,10 +3,17 @@ import {
   requireAuth,
   requirePermission,
 } from "../../middleware/authenticate.ts";
+import { rateLimit } from "../../middleware/rate-limit.ts";
 import * as alertChannelController from "./alert-channel.controller.ts";
 
 const canRead = requirePermission("alert-channel:read");
 const canWrite = requirePermission("alert-channel:write");
+const testAlertLimit = rateLimit({
+  name: "test-alert",
+  limit: 10,
+  windowSeconds: 60,
+  key: (req) => req.user?.id ?? "anonymous",
+});
 
 export const alertChannelRouter = Router();
 
@@ -44,6 +51,7 @@ alertChannelRouter.post(
   "/alert-channels/:id/test",
   requireAuth,
   canWrite,
+  testAlertLimit,
   alertChannelController.sendTest,
 );
 alertChannelRouter.get(

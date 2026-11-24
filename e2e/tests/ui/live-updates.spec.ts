@@ -3,7 +3,7 @@ import { uniqueSuffix } from "../../support/api-client.ts";
 import { API_ORIGIN } from "../../support/environment.ts";
 import { expect, goTo, tableRow, test } from "../../support/fixtures.ts";
 
-const INCIDENT_WAIT_MS = 150_000;
+const INCIDENT_WAIT_MS = 30_000;
 
 const monitorInput = (name: string, url: string) => ({
   name,
@@ -12,6 +12,7 @@ const monitorInput = (name: string, url: string) => ({
   intervalSeconds: 30,
   timeoutMs: 5000,
   expectedStatusCode: 200,
+  failureThreshold: 1,
   alertChannelIds: [],
 });
 
