@@ -1,6 +1,7 @@
 import { expect, test } from "../../support/fixtures.ts";
 import { DEMO_PASSWORD, demoUsers, tokenFromInviteUrl, uniqueEmail } from "../../support/api-client.ts";
 import { API_ORIGIN } from "../../support/environment.ts";
+import { latestEmailLink } from "../../support/mailbox.ts";
 
 const publicPost = (path: string, body: unknown) =>
   fetch(`${API_ORIGIN}/api${path}`, {
@@ -16,6 +17,7 @@ test.describe("team and invitations", () => {
     const invitation = await owner.post("/invitations", { email: email.toUpperCase(), role: "member" });
     expect(invitation.status).toBe(201);
     expect(invitation.body).toMatchObject({ email, role: "member", status: "pending", invitedBy: { name: "Olivia Owner" } });
+    expect(latestEmailLink(email, "/invite/")).toBe(invitation.body.inviteUrl);
 
     const token = tokenFromInviteUrl(invitation.body.inviteUrl);
     const preview = await fetch(`${API_ORIGIN}/api/invitations/preview/${token}`);

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import type { AlertEvent } from "@pulse/contracts";
 import { Queue } from "bullmq";
 import { createRedisConnection } from "../lib/redis.ts";
 
@@ -7,12 +9,13 @@ export const QUEUE_NAMES = {
   maintenance: "maintenance",
 } as const;
 
-export type AlertEvent = "incident.opened" | "incident.resolved" | "test";
+export type { AlertEvent };
 
 export type AlertJobData = {
   channelId: string;
   event: AlertEvent;
   incidentId?: string;
+  deliveryId?: string;
 };
 
 export type RunCheckJobData = {
@@ -40,7 +43,9 @@ export const maintenanceQueue = new Queue(QUEUE_NAMES.maintenance, {
 });
 
 export const enqueueAlert = async (data: AlertJobData) => {
-  await alertsQueue.add("send-alert", data, {
+  const deliveryId = data.deliveryId ?? randomUUID();
+
+  await alertsQueue.add("send-alert", { ...data, deliveryId }, {
     attempts: 5,
     backoff: { type: "exponential", delay: 5_000 },
   });

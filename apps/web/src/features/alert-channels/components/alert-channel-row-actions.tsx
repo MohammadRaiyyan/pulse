@@ -9,6 +9,7 @@ import {
   useTestAlertChannel,
 } from "../api/alert-channel-resource";
 import { AlertChannelForm } from "./alert-channel-form";
+import { SigningSecretDialog } from "./signing-secret-dialog";
 
 type ChannelProps = { channel: AlertChannel };
 
@@ -18,7 +19,7 @@ const TestChannelButton = ({ channel }: ChannelProps) => {
   return (
     <IconButton
       disabled={testChannel.isPending || !channel.isEnabled}
-      onClick={() => testChannel.mutate({ id: channel.id })}
+      onClick={() => testChannel.mutate({ id: channel.id, name: channel.name })}
       label={`Send test alert to ${channel.name}`}
     >
       <SendIcon />
@@ -29,6 +30,9 @@ const TestChannelButton = ({ channel }: ChannelProps) => {
 export const AlertChannelRowActions = ({ channel }: ChannelProps) => (
   <RowActions>
     <TestChannelButton channel={channel} />
+    {channel.destination.type === "webhook" ? (
+      <SigningSecretDialog channel={channel} />
+    ) : null}
     <EditResourceDialog
       resource={alertChannelResource}
       item={channel}

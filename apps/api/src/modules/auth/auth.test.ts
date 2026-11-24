@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { registerUser, request, useTestServer } from "../../test/client.ts";
+import { readSentEmails, waitForEmail } from "../../test/mail.ts";
 
 useTestServer();
 
@@ -165,5 +166,46 @@ describe("auth", () => {
     });
 
     expect(response.status).toBe(404);
+  });
+
+  it("emails a working reset link and sends nothing for unknown addresses", async () => {
+    await registerUser("Owner", "owner@test.dev");
+
+    const unknown = await request("/api/auth/password/forgot", {
+      method: "POST",
+      body: { email: "nobody@test.dev" },
+    });
+    expect(unknown.status).toBe(204);
+
+    const forgot = await request("/api/auth/password/forgot", {
+      method: "POST",
+      body: { email: "owner@test.dev" },
+    });
+    expect(forgot.status).toBe(204);
+
+    const email = await waitForEmail("owner@test.dev");
+    expect(email.subject).toBe("Reset your Pulse password");
+    expect(await readSentEmails()).toHaveLength(1);
+
+    const resetUrl = new URL(
+      email.text.match(/http\S+reset-password\S+/)?.[0] ?? "",
+    );
+    expect(email.html).toContain("Reset password");
+    expect(resetUrl.origin).toBe("http://localhost:5173");
+
+    const reset = await request("/api/auth/password/reset", {
+      method: "POST",
+      body: {
+        token: resetUrl.searchParams.get("token"),
+        password: "password456",
+      },
+    });
+    expect(reset.status).toBe(204);
+
+    const login = await request("/api/auth/login", {
+      method: "POST",
+      body: { email: "owner@test.dev", password: "password456" },
+    });
+    expect(login.status).toBe(200);
   });
 });

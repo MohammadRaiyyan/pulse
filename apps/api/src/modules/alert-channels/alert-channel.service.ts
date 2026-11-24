@@ -1,18 +1,27 @@
+import { randomUUID } from "node:crypto";
 import type {
   CreateAlertChannelInput,
   PaginationQuery,
   UpdateAlertChannelInput,
 } from "@pulse/contracts";
-import { enqueueAlert } from "../../jobs/queues.ts";
 import { conflict, notFound } from "../../lib/errors.ts";
 import { toLimitOffset, toPage } from "../../lib/pagination.ts";
 import {
   deleteAlertChannel,
   findAlertChannel,
+  findChannelForDelivery,
+  findSigningSecret,
   insertAlertChannel,
   listAlertChannels,
   updateAlertChannel,
+  updateSigningSecret,
 } from "./alert-channel.repository.ts";
+import { listDeliveriesForChannel } from "./alert-delivery.repository.ts";
+import {
+  TEST_DELIVERY_TIMEOUT_MS,
+  attemptDelivery,
+} from "./alert-delivery.service.ts";
+import { generateSigningSecret } from "./webhook-signature.ts";
 
 const LABEL = "Alert channel";
 
@@ -67,11 +76,57 @@ export const removeAlertChannel = async (id: string) => {
 };
 
 export const sendTestAlert = async (id: string) => {
-  const channel = await getAlertChannel(id);
+  const channel = await findChannelForDelivery(id);
+
+  if (!channel) {
+    throw notFound(LABEL);
+  }
 
   if (!channel.isEnabled) {
     throw conflict("Enable the channel before sending a test alert");
   }
 
-  await enqueueAlert({ channelId: channel.id, event: "test" });
+  const { delivery } = await attemptDelivery({
+    deliveryId: randomUUID(),
+    channel,
+    event: "test",
+    incident: undefined,
+    attempt: 1,
+    isFinalAttempt: true,
+    timeoutMs: TEST_DELIVERY_TIMEOUT_MS,
+  });
+
+  return delivery;
+};
+
+export const getDeliveries = async (id: string, query: PaginationQuery) => {
+  await getAlertChannel(id);
+  const { limit, offset } = toLimitOffset(query);
+  const { rows, total } = await listDeliveriesForChannel(id, limit, offset);
+  return toPage(rows, total, query);
+};
+
+const missingSigningSecret = async (id: string) => {
+  await getAlertChannel(id);
+  return conflict("Only webhook channels have a signing secret");
+};
+
+export const getSigningSecret = async (id: string) => {
+  const secret = await findSigningSecret(id);
+
+  if (!secret) {
+    throw await missingSigningSecret(id);
+  }
+
+  return secret;
+};
+
+export const rotateSigningSecret = async (id: string) => {
+  const secret = await updateSigningSecret(id, generateSigningSecret());
+
+  if (!secret) {
+    throw await missingSigningSecret(id);
+  }
+
+  return secret;
 };

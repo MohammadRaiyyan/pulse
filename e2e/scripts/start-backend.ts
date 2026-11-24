@@ -1,12 +1,13 @@
 import { spawn, spawnSync } from "node:child_process";
-import { createWriteStream, mkdirSync } from "node:fs";
+import { createWriteStream, mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { BACKEND_LOG_FILE } from "../support/environment.ts";
+import { BACKEND_LOG_FILE, MAIL_FILE } from "../support/environment.ts";
 
 const apiDirectory = new URL("../../apps/api", import.meta.url).pathname;
 
 mkdirSync(dirname(BACKEND_LOG_FILE), { recursive: true });
 const log = createWriteStream(BACKEND_LOG_FILE, { flags: "w" });
+writeFileSync(MAIL_FILE, "");
 
 const runOnce = (script: string) => {
   const result = spawnSync("node", [script], { cwd: apiDirectory, env: process.env, encoding: "utf8" });

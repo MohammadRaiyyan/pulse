@@ -3,6 +3,7 @@ export const WEB_PORT = Number(process.env.E2E_WEB_PORT ?? 5174);
 
 export const API_ORIGIN = `http://localhost:${API_PORT}`;
 export const WEB_ORIGIN = `http://localhost:${WEB_PORT}`;
+export const MAIL_FILE = new URL("../test-results/emails.jsonl", import.meta.url).pathname;
 
 export const backendEnvironment = {
   NODE_ENV: "test",
@@ -16,6 +17,8 @@ export const backendEnvironment = {
   API_RATE_LIMIT_PER_MINUTE: "5000",
   CHECK_DISPATCH_INTERVAL_MS: "2000",
   SILENCE_CHECK_INTERVAL_MS: "5000",
+  MAIL_TRANSPORT: "file",
+  MAIL_FILE,
 };
 
 export const webEnvironment = {

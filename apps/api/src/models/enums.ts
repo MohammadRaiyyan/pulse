@@ -1,5 +1,7 @@
 import {
   alertChannelTypeSchema,
+  alertDeliveryStatusSchema,
+  alertEventSchema,
   checkOutcomeSchema,
   httpMethodSchema,
   incidentSourceTypeSchema,
@@ -24,6 +26,11 @@ export const invitationStatusEnum = pgEnum(
 export const alertChannelTypeEnum = pgEnum(
   "alert_channel_type",
   alertChannelTypeSchema.enum,
+);
+export const alertEventEnum = pgEnum("alert_event", alertEventSchema.enum);
+export const alertDeliveryStatusEnum = pgEnum(
+  "alert_delivery_status",
+  alertDeliveryStatusSchema.enum,
 );
 export const httpMethodEnum = pgEnum("http_method", httpMethodSchema.enum);
 export const monitorStatusEnum = pgEnum(

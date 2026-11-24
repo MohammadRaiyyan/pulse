@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { boolean, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { alertChannelTypeEnum } from "./enums.ts";
 
@@ -7,6 +8,11 @@ export const alertChannels = pgTable("alert_channels", {
   isEnabled: boolean().notNull().default(true),
   type: alertChannelTypeEnum().notNull(),
   target: text().notNull(),
+  signingSecret: text()
+    .notNull()
+    .default(
+      sql`('whsec_' || replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', ''))`,
+    ),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 

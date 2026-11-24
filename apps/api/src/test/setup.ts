@@ -4,6 +4,7 @@ import { afterAll, beforeAll, beforeEach } from "vitest";
 import { db, sql } from "../db/client.ts";
 import { closeQueues } from "../jobs/queues.ts";
 import { redis } from "../lib/redis.ts";
+import { clearSentEmails } from "./mail.ts";
 
 beforeAll(async () => {
   await migrate(db, {
@@ -16,6 +17,7 @@ beforeEach(async () => {
     rawSql`truncate table users, alert_channels, monitors, webhooks, incidents, invitations restart identity cascade`,
   );
   await redis.flushdb();
+  await clearSentEmails();
 });
 
 afterAll(async () => {

@@ -1,5 +1,5 @@
 import { createTeammate, uniqueEmail } from "../../support/api-client.ts";
-import { latestLoggedUrl } from "../../support/backend-log.ts";
+import { latestEmailLink } from "../../support/mailbox.ts";
 import { expect, test, toast } from "../../support/fixtures.ts";
 
 const signIn = async (page: import("@playwright/test").Page, email: string, password: string) => {
@@ -68,8 +68,8 @@ test.describe("authentication", () => {
     await page.getByRole("button", { name: "Send reset link" }).click();
     await expect(page.getByText(`If an account exists for ${teammate.email}`)).toBeVisible();
 
-    await expect.poll(() => latestLoggedUrl("resetUrl", teammate.email)).toBeTruthy();
-    const resetUrl = latestLoggedUrl("resetUrl", teammate.email) ?? "";
+    await expect.poll(() => latestEmailLink(teammate.email, "/reset-password")).toBeTruthy();
+    const resetUrl = latestEmailLink(teammate.email, "/reset-password") ?? "";
 
     await page.goto(resetUrl);
     await page.getByLabel("New password").fill("password789");

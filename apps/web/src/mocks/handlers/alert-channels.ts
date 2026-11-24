@@ -1,16 +1,19 @@
 import {
   type AlertChannel,
+  type AlertDelivery,
   type CreateAlertChannelInput,
   type UpdateAlertChannelInput,
   endpoints,
   resources,
 } from "@pulse/contracts";
+import type { PathParams } from "msw";
 import { db } from "../db";
+import { childListHandler } from "../lib/child-list";
 import { findById } from "../lib/collection";
 import { crudHandlers } from "../lib/crud";
 import { newId } from "../lib/ids";
 import { detachAlertChannel } from "../lib/relations";
-import { errorResponse, noContent } from "../lib/responses";
+import { errorResponse } from "../lib/responses";
 import { route } from "../lib/route";
 import { now } from "../lib/time";
 
@@ -20,14 +23,51 @@ const toChannel = (input: CreateAlertChannelInput): AlertChannel => ({
   ...input,
   id: newId(),
   createdAt: now(),
+  lastDelivery: null,
 });
+
+const newSigningSecret = () =>
+  `whsec_${crypto.randomUUID().replaceAll("-", "")}${crypto.randomUUID().replaceAll("-", "")}`;
+
+const recordTestDelivery = (channel: AlertChannel): AlertDelivery => {
+  const timestamp = now();
+  const delivery: AlertDelivery = {
+    id: newId(),
+    event: "test",
+    incidentId: null,
+    status: "success",
+    attempts: 1,
+    lastError: null,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+
+  db.alertChannels.set(channel.id, { ...channel, lastDelivery: delivery });
+  db.alertDeliveries.set(channel.id, [
+    ...(db.alertDeliveries.get(channel.id) ?? []),
+    delivery,
+  ]);
+
+  return delivery;
+};
+
+const findWebhookChannel = (params: PathParams) => {
+  const channel = findById(db.alertChannels, params, LABEL);
+
+  return channel.destination.type === "webhook" ? channel : undefined;
+};
+
+const onlyWebhooks = () =>
+  errorResponse("CONFLICT", "Only webhook channels have a signing secret");
 
 const applyChannelUpdate = (
   channel: AlertChannel,
   input: UpdateAlertChannelInput,
 ): AlertChannel => ({ ...channel, ...input });
 
-const testAlertChannel = route(endpoints.testAlertChannel, ({ params }) => {
+const testAlertChannel = route(
+  endpoints.testAlertChannel,
+  ({ params, respond }) => {
   const channel = findById(db.alertChannels, params, LABEL);
 
   if (!channel.isEnabled) {
@@ -37,8 +77,42 @@ const testAlertChannel = route(endpoints.testAlertChannel, ({ params }) => {
     );
   }
 
-  return noContent();
-});
+  return respond(recordTestDelivery(channel));
+  },
+);
+
+const getSigningSecret = route(
+  endpoints.getAlertChannelSigningSecret,
+  ({ params, respond }) => {
+    const channel = findWebhookChannel(params);
+
+    if (!channel) {
+      return onlyWebhooks();
+    }
+
+    const signingSecret =
+      db.signingSecrets.get(channel.id) ?? newSigningSecret();
+    db.signingSecrets.set(channel.id, signingSecret);
+
+    return respond({ signingSecret });
+  },
+);
+
+const rotateSigningSecret = route(
+  endpoints.rotateAlertChannelSigningSecret,
+  ({ params, respond }) => {
+    const channel = findWebhookChannel(params);
+
+    if (!channel) {
+      return onlyWebhooks();
+    }
+
+    const signingSecret = newSigningSecret();
+    db.signingSecrets.set(channel.id, signingSecret);
+
+    return respond({ signingSecret });
+  },
+);
 
 export const alertChannelHandlers = [
   ...crudHandlers(resources.alertChannels, {
@@ -50,4 +124,12 @@ export const alertChannelHandlers = [
     onDelete: (channel) => detachAlertChannel(channel.id),
   }),
   testAlertChannel,
+  getSigningSecret,
+  rotateSigningSecret,
+  childListHandler(endpoints.listAlertChannelDeliveries, {
+    label: LABEL,
+    parents: db.alertChannels,
+    children: db.alertDeliveries,
+    sortKey: (delivery) => delivery.createdAt,
+  }),
 ];

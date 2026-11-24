@@ -46,3 +46,21 @@ alertChannelRouter.post(
   canWrite,
   alertChannelController.sendTest,
 );
+alertChannelRouter.get(
+  "/alert-channels/:id/deliveries",
+  requireAuth,
+  canRead,
+  alertChannelController.listDeliveries,
+);
+alertChannelRouter.get(
+  "/alert-channels/:id/signing-secret",
+  requireAuth,
+  canWrite,
+  alertChannelController.getSigningSecret,
+);
+alertChannelRouter.post(
+  "/alert-channels/:id/signing-secret/rotate",
+  requireAuth,
+  canWrite,
+  alertChannelController.rotateSigningSecret,
+);

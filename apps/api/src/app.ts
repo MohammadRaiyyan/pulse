@@ -4,7 +4,7 @@ import express from "express";
 import helmet from "helmet";
 import { pinoHttp } from "pino-http";
 import { env } from "./config/env.ts";
-import { logger } from "./lib/logger.ts";
+import { logger, serializeRequest } from "./lib/logger.ts";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.ts";
 import { ingestRouter } from "./modules/webhooks/ingest.routes.ts";
 import { apiRouter } from "./routes.ts";
@@ -20,6 +20,7 @@ export const createApp = () => {
     pinoHttp({
       logger,
       autoLogging: { ignore: (req) => req.url === "/api/health" },
+      serializers: { req: serializeRequest },
     }),
   );
 

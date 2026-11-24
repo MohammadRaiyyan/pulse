@@ -25,6 +25,7 @@
     "helmet": "catalog:",
     "ioredis": "catalog:",
     "jose": "catalog:",
+    "nodemailer": "catalog:",
     "pino": "catalog:",
     "pino-http": "catalog:",
     "postgres": "catalog:",
