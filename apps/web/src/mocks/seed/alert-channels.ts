@@ -9,7 +9,12 @@ export const seedAlertChannels = (): AlertChannel[] => [
     id: seedId(CHANNEL_NAMESPACE, 1),
     name: "On-call email",
     isEnabled: true,
-    destination: { type: "email", target: "oncall@pulse.dev" },
+    destination: {
+      type: "email",
+      target: "oncall@pulse.dev",
+      region: null,
+      isMasked: false,
+    },
     createdAt: minutesAgo(20_000),
     lastDelivery: {
       id: seedId(CHANNEL_NAMESPACE, 101),
@@ -28,7 +33,9 @@ export const seedAlertChannels = (): AlertChannel[] => [
     isEnabled: true,
     destination: {
       type: "slack",
-      target: "https://hooks.slack.com/services/T000/B000/XXXX",
+      target: "••••XXXX",
+      region: null,
+      isMasked: true,
     },
     createdAt: minutesAgo(15_000),
     lastDelivery: {
@@ -49,6 +56,8 @@ export const seedAlertChannels = (): AlertChannel[] => [
     destination: {
       type: "webhook",
       target: "https://events.example.com/pulse",
+      region: null,
+      isMasked: false,
     },
     createdAt: minutesAgo(9_000),
     lastDelivery: null,

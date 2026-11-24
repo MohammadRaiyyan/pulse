@@ -24,6 +24,12 @@ alertChannelRouter.get(
   alertChannelController.list,
 );
 alertChannelRouter.get(
+  "/alert-channels/counts",
+  requireAuth,
+  canRead,
+  alertChannelController.counts,
+);
+alertChannelRouter.get(
   "/alert-channels/:id",
   requireAuth,
   canRead,

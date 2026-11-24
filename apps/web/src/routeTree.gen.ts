@@ -16,6 +16,7 @@ import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAlertChannelsRouteImport } from './routes/_app/alert-channels'
 import { Route as AppIncidentsRouteImport } from './routes/_app/incidents'
+import { Route as AppIntegrationsRouteImport } from './routes/_app/integrations'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppStatusPageRouteImport } from './routes/_app/status-page'
 import { Route as AppTeamRouteImport } from './routes/_app/team'
@@ -63,6 +64,11 @@ const AppAlertChannelsRoute = AppAlertChannelsRouteImport.update({
 const AppIncidentsRoute = AppIncidentsRouteImport.update({
   id: '/incidents',
   path: '/incidents',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppIntegrationsRoute = AppIntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/verify-email': typeof VerifyEmailRoute
   '/alert-channels': typeof AppAlertChannelsRoute
   '/incidents': typeof AppIncidentsRoute
+  '/integrations': typeof AppIntegrationsRoute
   '/settings': typeof AppSettingsRoute
   '/status-page': typeof AppStatusPageRoute
   '/team': typeof AppTeamRoute
@@ -172,6 +179,7 @@ export interface FileRoutesByTo {
   '/verify-email': typeof VerifyEmailRoute
   '/alert-channels': typeof AppAlertChannelsRoute
   '/incidents': typeof AppIncidentsRoute
+  '/integrations': typeof AppIntegrationsRoute
   '/settings': typeof AppSettingsRoute
   '/status-page': typeof AppStatusPageRoute
   '/team': typeof AppTeamRoute
@@ -196,6 +204,7 @@ export interface FileRoutesById {
   '/verify-email': typeof VerifyEmailRoute
   '/_app/alert-channels': typeof AppAlertChannelsRoute
   '/_app/incidents': typeof AppIncidentsRoute
+  '/_app/integrations': typeof AppIntegrationsRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/status-page': typeof AppStatusPageRoute
   '/_app/team': typeof AppTeamRoute
@@ -221,6 +230,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/alert-channels'
     | '/incidents'
+    | '/integrations'
     | '/settings'
     | '/status-page'
     | '/team'
@@ -243,6 +253,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/alert-channels'
     | '/incidents'
+    | '/integrations'
     | '/settings'
     | '/status-page'
     | '/team'
@@ -266,6 +277,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/_app/alert-channels'
     | '/_app/incidents'
+    | '/_app/integrations'
     | '/_app/settings'
     | '/_app/status-page'
     | '/_app/team'
@@ -342,6 +354,13 @@ declare module '@tanstack/react-router' {
       path: '/incidents'
       fullPath: '/incidents'
       preLoaderRoute: typeof AppIncidentsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/integrations': {
+      id: '/_app/integrations'
+      path: '/integrations'
+      fullPath: '/integrations'
+      preLoaderRoute: typeof AppIntegrationsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/settings': {
@@ -455,6 +474,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppAlertChannelsRoute: typeof AppAlertChannelsRoute
   AppIncidentsRoute: typeof AppIncidentsRoute
+  AppIntegrationsRoute: typeof AppIntegrationsRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppStatusPageRoute: typeof AppStatusPageRoute
   AppTeamRoute: typeof AppTeamRoute
@@ -470,6 +490,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAlertChannelsRoute: AppAlertChannelsRoute,
   AppIncidentsRoute: AppIncidentsRoute,
+  AppIntegrationsRoute: AppIntegrationsRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppStatusPageRoute: AppStatusPageRoute,
   AppTeamRoute: AppTeamRoute,
