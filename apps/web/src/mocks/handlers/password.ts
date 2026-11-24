@@ -46,6 +46,7 @@ const resetPassword = route(endpoints.resetPassword, ({ body }) => {
   }
 
   setPassword(user.id, body.password);
+  db.linkedAccounts.delete(user.id);
 
   return noContent();
 });

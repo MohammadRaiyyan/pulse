@@ -32,7 +32,11 @@ import {
   invitationPreviewSchema,
   invitationSchema,
 } from "../invitations/index.ts";
-import { updateMemberSchema } from "../members/index.ts";
+import {
+  ownershipTransferSchema,
+  transferOwnershipSchema,
+  updateMemberSchema,
+} from "../members/index.ts";
 import {
   checkResultSchema,
   createMonitorSchema,
@@ -309,6 +313,12 @@ export const endpoints = {
     path: "/public/status",
     access: "public",
     response: publicStatusSchema,
+  transferOwnership: defineEndpoint({
+    method: "POST",
+    path: "/members/:id/transfer-ownership",
+    access: "member:manage",
+    body: transferOwnershipSchema,
+    response: ownershipTransferSchema,
   }),
   previewInvitation: defineEndpoint({
     method: "GET",

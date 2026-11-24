@@ -1,11 +1,24 @@
-import type { PaginationQuery, UpdateMemberInput } from "@pulse/contracts";
-import { forbidden, notFound } from "../../lib/errors.ts";
+import type {
+  PaginationQuery,
+  TransferOwnershipInput,
+  UpdateMemberInput,
+} from "@pulse/contracts";
+import {
+  ownershipReceivedEmail,
+  ownershipTransferredEmail,
+} from "../../lib/email-templates.ts";
+import { badRequest, conflict, forbidden, notFound } from "../../lib/errors.ts";
+import { trySendEmail } from "../../lib/mailer.ts";
 import { toLimitOffset, toPage } from "../../lib/pagination.ts";
 import { publishChange } from "../../lib/realtime.ts";
+import { verifyPassword } from "../../security/passwords.ts";
 import {
+  type UserRecord,
   deleteMember,
+  findPasswordHash,
   findUserById,
   listUsers,
+  transferOwnership as transferOwnershipInDatabase,
   updateMemberRole,
 } from "../users/user.repository.ts";
 import { type AuthUser, forgetCachedUser } from "../users/user.service.ts";
@@ -63,6 +76,99 @@ export const changeMemberRole = async (
   publishChange({ type: "member.updated", id });
 
   return member;
+};
+
+const assertOwnerPassword = async (
+  actor: AuthUser,
+  currentPassword: string,
+) => {
+  const passwordHash = await findPasswordHash(actor.id);
+
+  if (!passwordHash) {
+    throw badRequest("Set a password before transferring ownership", {
+      currentPassword: ["Set a password before transferring ownership"],
+    });
+  }
+
+  if (!(await verifyPassword(passwordHash, currentPassword))) {
+    throw badRequest("Current password is incorrect", {
+      currentPassword: ["Current password is incorrect"],
+    });
+  }
+};
+
+const explainBlockedTransfer = async (targetId: string) => {
+  const target = await findUserById(targetId);
+
+  if (!target) {
+    return notFound(LABEL);
+  }
+
+  if (!target.emailVerifiedAt) {
+    return conflict(
+      "Ownership can only go to a member with a verified email address",
+    );
+  }
+
+  return conflict("Ownership was already transferred. Reload and try again.");
+};
+
+const sendOwnershipEmails = async (
+  previousOwner: UserRecord,
+  newOwner: UserRecord,
+) => {
+  const transferredAt = new Date();
+
+  await Promise.all([
+    trySendEmail({
+      to: previousOwner.email,
+      ...ownershipTransferredEmail({
+        newOwnerName: newOwner.name,
+        transferredAt,
+      }),
+    }),
+    trySendEmail({
+      to: newOwner.email,
+      ...ownershipReceivedEmail({
+        previousOwnerName: previousOwner.name,
+        transferredAt,
+      }),
+    }),
+  ]);
+};
+
+export const transferOwnership = async (
+  actor: AuthUser,
+  targetId: string,
+  input: TransferOwnershipInput,
+) => {
+  if (actor.role !== "owner") {
+    throw forbidden("Only the workspace owner can transfer ownership");
+  }
+
+  if (actor.id === targetId) {
+    throw forbidden("You already own this workspace");
+  }
+
+  await assertOwnerPassword(actor, input.currentPassword);
+
+  const transfer = await transferOwnershipInDatabase(actor.id, targetId);
+
+  if (!transfer) {
+    throw await explainBlockedTransfer(targetId);
+  }
+
+  const { previousOwner, newOwner } = transfer;
+
+  await Promise.all([
+    forgetCachedUser(previousOwner.id),
+    forgetCachedUser(newOwner.id),
+  ]);
+  publishChange({ type: "member.updated", id: previousOwner.id });
+  publishChange({ type: "member.updated", id: newOwner.id });
+  await sendOwnershipEmails(previousOwner, newOwner);
+
+  return transfer;
 };
 
 export const removeMember = async (actor: AuthUser, id: string) => {

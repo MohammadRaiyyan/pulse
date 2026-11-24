@@ -69,3 +69,14 @@ export const sendEmail = async (message: EmailMessage) => {
 
   await smtpTransport.sendMail({ from, ...message });
 };
+
+export const trySendEmail = async (message: EmailMessage) => {
+  try {
+    await sendEmail(message);
+  } catch (error) {
+    logger.error(
+      { err: error, subject: message.subject },
+      "Email could not be sent",
+    );
+  }
+};

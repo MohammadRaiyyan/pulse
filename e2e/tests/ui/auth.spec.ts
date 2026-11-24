@@ -1,5 +1,5 @@
 import { createTeammate, uniqueEmail } from "../../support/api-client.ts";
-import { latestEmailLink } from "../../support/mailbox.ts";
+import { latestEmailLink, latestEmailTo } from "../../support/mailbox.ts";
 import { expect, test, toast } from "../../support/fixtures.ts";
 
 const signIn = async (page: import("@playwright/test").Page, email: string, password: string) => {
@@ -74,6 +74,8 @@ test.describe("authentication", () => {
     await page.getByRole("button", { name: "Update password" }).click();
     await expect(page).toHaveURL(/\/login/);
     await toast(page, "Password updated");
+    await toast(page, "Reconnect them in Settings");
+    await expect.poll(() => latestEmailTo(teammate.email)?.subject).toBe("Your Pulse password was changed");
 
     await signIn(page, teammate.email, teammate.password);
     await expect(page.getByText("Invalid email or password")).toBeVisible();

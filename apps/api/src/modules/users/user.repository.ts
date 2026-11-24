@@ -1,5 +1,15 @@
 import type { Role } from "@pulse/contracts";
-import { and, count, desc, eq, ne, notInArray, sql } from "drizzle-orm";
+import {
+  TransactionRollbackError,
+  and,
+  count,
+  desc,
+  eq,
+  isNotNull,
+  ne,
+  notInArray,
+  sql,
+} from "drizzle-orm";
 import { db } from "../../db/client.ts";
 import { users } from "../../models/index.ts";
 
@@ -93,7 +103,9 @@ export const insertUser = async (values: NewUser) => {
 
 export const insertFirstUserAsOwner = (values: NewOwner) =>
   db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(${OWNER_BOOTSTRAP_LOCK})`);
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(${OWNER_BOOTSTRAP_LOCK})`,
+    );
 
     const [existing] = await tx.select({ id: users.id }).from(users).limit(1);
 
@@ -134,6 +146,46 @@ export const updateMemberRole = async (
     .where(and(eq(users.id, id), changeableBy(actorRole)))
     .returning(userColumns);
   return user;
+};
+
+export const transferOwnership = async (ownerId: string, targetId: string) => {
+  try {
+    return await db.transaction(async (tx) => {
+      const [previousOwner] = await tx
+        .update(users)
+        .set({ role: "admin" })
+        .where(and(eq(users.id, ownerId), eq(users.role, "owner")))
+        .returning(userColumns);
+
+      if (!previousOwner) {
+        return undefined;
+      }
+
+      const [newOwner] = await tx
+        .update(users)
+        .set({ role: "owner" })
+        .where(
+          and(
+            eq(users.id, targetId),
+            ne(users.id, ownerId),
+            isNotNull(users.emailVerifiedAt),
+          ),
+        )
+        .returning(userColumns);
+
+      if (!newOwner) {
+        return tx.rollback();
+      }
+
+      return { previousOwner, newOwner };
+    });
+  } catch (error) {
+    if (error instanceof TransactionRollbackError) {
+      return undefined;
+    }
+
+    throw error;
+  }
 };
 
 export const deleteMember = async (id: string, actorRole: Role) => {
