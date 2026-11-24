@@ -3,7 +3,11 @@ import { z } from "zod";
 import { clearAccessToken } from "./access-token";
 import { refreshSession } from "./refresh-session";
 import { notifySessionExpired } from "./session-events";
-import { type RequestOptions, executeRequest } from "./transport";
+import {
+  type RequestOptions,
+  executeDownload,
+  executeRequest,
+} from "./transport";
 
 export const emptyResponseSchema = z.undefined();
 
@@ -30,3 +34,6 @@ export const recoverSession = async () => {
 export const http = createHttpClient(recoverSession);
 
 export const publicHttp = createHttpClient();
+
+export const downloadFile = (path: string, query: object, accept: string) =>
+  executeDownload(path, query, accept, recoverSession);

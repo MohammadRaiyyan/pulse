@@ -16,6 +16,7 @@ import {
 } from "@/features/monitors/components/check-history-table";
 import { MonitorActions } from "@/features/monitors/components/monitor-actions";
 import { MonitorDetailLayout } from "@/features/monitors/components/monitor-detail-layout";
+import { MonitorReportLink } from "@/features/reports/components/monitor-report-link";
 import { MonitorDetailSkeleton } from "@/features/monitors/components/monitor-detail-skeleton";
 import { MonitorRequestSummary } from "@/features/monitors/components/monitor-request-summary";
 import { MonitorResponseTime } from "@/features/monitors/components/monitor-response-time";
@@ -35,7 +36,12 @@ const MonitorDetailPage = () => {
     <MonitorDetailLayout
       title={monitor.name}
       badge={<MonitorStateBadge monitor={monitor} />}
-      actions={<MonitorActions monitor={monitor} />}
+      actions={
+        <>
+          <MonitorReportLink monitorId={monitor.id} />
+          <MonitorActions monitor={monitor} />
+        </>
+      }
       overview={
         <>
           <MonitorTarget monitor={monitor} />

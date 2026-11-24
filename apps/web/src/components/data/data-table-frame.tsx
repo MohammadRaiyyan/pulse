@@ -10,7 +10,7 @@ import type { ReactNode } from "react";
 
 export type DataTableColumn<TRow> = {
   id: string;
-  header: string;
+  header: ReactNode;
   cell: (row: TRow) => ReactNode;
   skeleton?: ReactNode;
   className?: string;

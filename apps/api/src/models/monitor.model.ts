@@ -116,7 +116,10 @@ export const monitorDailyStats = pgTable(
     degradedCount: integer().notNull().default(0),
     totalResponseTimeMs: bigint({ mode: "number" }).notNull().default(0),
   },
-  (table) => [primaryKey({ columns: [table.monitorId, table.day] })],
+  (table) => [
+    primaryKey({ columns: [table.monitorId, table.day] }),
+    index("monitor_daily_stats_day_idx").on(table.day),
+  ],
 );
 
 export type MonitorDailyStatsRow = typeof monitorDailyStats.$inferSelect;

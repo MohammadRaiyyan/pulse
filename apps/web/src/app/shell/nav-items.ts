@@ -2,6 +2,7 @@ import type { Permission } from "@pulse/contracts";
 import type { LinkProps } from "@tanstack/react-router";
 import {
   ActivityIcon,
+  ChartColumnIcon,
   GlobeIcon,
   LayersIcon,
   LayoutDashboardIcon,
@@ -53,6 +54,12 @@ export const navItems: readonly NavItem[] = [
     icon: SirenIcon,
     permission: "incident:read",
     badge: ActiveIncidentsBadge,
+  },
+  {
+    title: "Reports",
+    to: "/reports",
+    icon: ChartColumnIcon,
+    permission: "monitor:read",
   },
   {
     title: "Integrations",
