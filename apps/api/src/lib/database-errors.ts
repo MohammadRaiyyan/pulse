@@ -37,6 +37,7 @@ const errorsByConstraint: Record<string, () => AppError> = {
     conflict("Email already in use", {
       email: ["An account with this email already exists"],
     }),
+  users_single_owner: () => conflict("This workspace already has an owner"),
   invitations_one_pending_per_email: () =>
     conflict("Already invited", {
       email: ["An invitation is already pending for this email"],

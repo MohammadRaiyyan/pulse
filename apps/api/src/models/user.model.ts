@@ -18,9 +18,15 @@ export const users = pgTable(
     email: text().notNull(),
     passwordHash: text(),
     role: roleEnum().notNull(),
+    emailVerifiedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [uniqueIndex("users_email_unique").on(sql`lower(${table.email})`)],
+  (table) => [
+    uniqueIndex("users_email_unique").on(sql`lower(${table.email})`),
+    uniqueIndex("users_single_owner")
+      .on(table.role)
+      .where(sql`${table.role} = 'owner'`),
+  ],
 );
 
 export const sessions = pgTable(
@@ -62,15 +68,34 @@ export const linkedAccounts = pgTable(
   ],
 );
 
-export const passwordResetTokens = pgTable("password_reset_tokens", {
-  id: uuid().primaryKey().defaultRandom(),
-  userId: uuid()
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  tokenHash: text().notNull().unique(),
-  expiresAt: timestamp({ withTimezone: true }).notNull(),
-  usedAt: timestamp({ withTimezone: true }),
-});
+export const passwordResetTokens = pgTable(
+  "password_reset_tokens",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text().notNull().unique(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    usedAt: timestamp({ withTimezone: true }),
+  },
+  (table) => [index("password_reset_tokens_user_idx").on(table.userId)],
+);
+
+export const emailVerificationTokens = pgTable(
+  "email_verification_tokens",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    email: text().notNull(),
+    tokenHash: text().notNull().unique(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    usedAt: timestamp({ withTimezone: true }),
+  },
+  (table) => [index("email_verification_tokens_user_idx").on(table.userId)],
+);
 
 export type UserRow = typeof users.$inferSelect;
 export type SessionRow = typeof sessions.$inferSelect;

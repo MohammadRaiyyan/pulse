@@ -28,6 +28,12 @@ export const useChangePassword = () =>
     meta: inlineErrors,
   });
 
+export const useResendEmailVerification = () =>
+  useMutation({
+    mutationFn: accountApi.resendEmailVerification,
+    onSuccess: () => toast.success("Verification email sent"),
+  });
+
 export const useSignOutEverywhere = () => {
   const session = useSessionActions();
 

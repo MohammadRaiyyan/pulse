@@ -11,6 +11,7 @@ type RequestOptions = {
   token?: string;
   body?: unknown;
   cookie?: string;
+  headers?: Record<string, string>;
 };
 
 export type TestResponse = {
@@ -34,10 +35,10 @@ export const useTestServer = () => {
   });
 };
 
-const readRefreshCookie = (headers: Headers) => {
+export const readCookie = (headers: Headers, name: string) => {
   const cookie = headers
     .getSetCookie()
-    .find((value) => value.startsWith("pulse_refresh="));
+    .find((value) => value.startsWith(`${name}=`));
   return cookie?.split(";")[0];
 };
 
@@ -45,7 +46,7 @@ export const request = async (
   path: string,
   options: RequestOptions = {},
 ): Promise<TestResponse> => {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...options.headers };
 
   if (options.body !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -71,7 +72,7 @@ export const request = async (
     status: response.status,
     body: text ? JSON.parse(text) : undefined,
     headers: response.headers,
-    refreshCookie: readRefreshCookie(response.headers),
+    refreshCookie: readCookie(response.headers, "pulse_refresh"),
   };
 };
 
@@ -100,6 +101,7 @@ export const signInWithRole = async (role: Role, email: string) => {
     email,
     role,
     passwordHash: await hashPassword("password123"),
+    emailVerifiedAt: new Date(),
   });
   const response = await request("/api/auth/login", {
     method: "POST",

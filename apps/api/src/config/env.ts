@@ -13,6 +13,7 @@ const envSchema = z.object({
   REDIS_URL: z.url(),
   JWT_SECRET: z.string().min(32),
   INVITE_SECRET: z.string().min(32),
+  OWNER_SIGNUP_ENABLED: z.stringbool().default(false),
   GITHUB_CLIENT_ID: z.string().default(""),
   GITHUB_CLIENT_SECRET: z.string().default(""),
   GOOGLE_CLIENT_ID: z.string().default(""),

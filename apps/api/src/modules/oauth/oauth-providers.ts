@@ -1,4 +1,4 @@
-import type { OAuthProvider } from "@pulse/contracts";
+import { type OAuthProvider, oauthProviderSchema } from "@pulse/contracts";
 import { env } from "../../config/env.ts";
 import { unauthorized } from "../../lib/errors.ts";
 
@@ -9,6 +9,7 @@ export type OAuthProfile = {
 };
 
 type ProviderConfig = {
+  label: string;
   clientId: string;
   clientSecret: string;
   authorizeUrl: string;
@@ -17,12 +18,14 @@ type ProviderConfig = {
 
 export const providerConfigs: Record<OAuthProvider, ProviderConfig> = {
   github: {
+    label: "GitHub",
     clientId: env.GITHUB_CLIENT_ID,
     clientSecret: env.GITHUB_CLIENT_SECRET,
     authorizeUrl: "https://github.com/login/oauth/authorize",
     scope: "read:user user:email",
   },
   google: {
+    label: "Google",
     clientId: env.GOOGLE_CLIENT_ID,
     clientSecret: env.GOOGLE_CLIENT_SECRET,
     authorizeUrl: "https://accounts.google.com/o/oauth2/v2/auth",
@@ -30,7 +33,15 @@ export const providerConfigs: Record<OAuthProvider, ProviderConfig> = {
   },
 };
 
-export const callbackUrlFor = (provider: OAuthProvider) =>
+export const isProviderConfigured = (provider: OAuthProvider) =>
+  Boolean(
+    providerConfigs[provider].clientId && providerConfigs[provider].clientSecret,
+  );
+
+export const configuredProviders = () =>
+  oauthProviderSchema.options.filter(isProviderConfigured);
+
+export const callbackUrlFor =(provider: OAuthProvider) =>
   new URL(`/oauth/callback/${provider}`, env.APP_URL).href;
 
 const readJson = async (response: Response) => {

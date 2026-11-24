@@ -91,6 +91,31 @@ test.describe("authentication", () => {
     expect((await blocked.json()).error.code).toBe("RATE_LIMITED");
   });
 
+  test("sign-up is closed once the workspace has an owner", async () => {
+    const config = await fetch(`${API_ORIGIN}/api/auth/config`);
+    expect(await config.json()).toEqual({ signupOpen: false, oauthProviders: [] });
+
+    const response = await post("/auth/register", { name: "Stranger", email: uniqueEmail("stranger"), password: DEMO_PASSWORD });
+    expect(response.status).toBe(403);
+    expect((await response.json()).error.message).toMatch(/invite-only/);
+  });
+
+  test("changing the email needs the current password and clears verification", async ({ ownerApi: owner }) => {
+    const teammate = await createTeammate(owner, "member");
+    expect(teammate.user.emailVerifiedAt).toEqual(expect.any(String));
+    const newEmail = uniqueEmail("moved");
+
+    const withoutPassword = await teammate.client.patch("/me", { name: teammate.name, email: newEmail });
+    expect(withoutPassword.status).toBe(400);
+    expect(withoutPassword.body.error.fieldErrors.currentPassword).toBeDefined();
+
+    const changed = await teammate.client.patch("/me", { name: teammate.name, email: newEmail, currentPassword: DEMO_PASSWORD });
+    expect(changed.status).toBe(200);
+    expect(changed.body).toMatchObject({ email: newEmail, emailVerifiedAt: null });
+
+    expect((await post("/auth/email/verify", { token: "not-a-real-token" })).status).toBe(404);
+  });
+
   test("password reset always answers 204 and rejects unknown tokens", async () => {
     expect((await post("/auth/password/forgot", { email: uniqueEmail("nobody") })).status).toBe(204);
 

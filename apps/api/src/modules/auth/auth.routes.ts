@@ -1,13 +1,18 @@
 import { Router } from "express";
 import { requireAuth } from "../../middleware/authenticate.ts";
-import { byBodyEmail, byIp, rateLimit } from "../../middleware/rate-limit.ts";
+import {
+  byBodyEmail,
+  byIp,
+  byIpAndBodyEmail,
+  rateLimit,
+} from "../../middleware/rate-limit.ts";
 import * as authController from "./auth.controller.ts";
 
 const loginLimitPerEmail = rateLimit({
-  name: "login-email",
+  name: "login-email-ip",
   limit: 5,
   windowSeconds: 60,
-  key: byBodyEmail,
+  key: byIpAndBodyEmail,
 });
 const loginLimitPerIp = rateLimit({
   name: "login-ip",
@@ -27,8 +32,16 @@ const forgotPasswordLimit = rateLimit({
   windowSeconds: 60,
   key: byBodyEmail,
 });
+const verifyEmailLimit = rateLimit({
+  name: "verify-email",
+  limit: 20,
+  windowSeconds: 600,
+  key: byIp,
+});
 
 export const authRouter = Router();
+
+authRouter.get("/auth/config", authController.getConfig);
 
 authRouter.post("/auth/register", registerLimit, authController.register);
 authRouter.post(
@@ -50,3 +63,8 @@ authRouter.post(
   authController.forgotPassword,
 );
 authRouter.post("/auth/password/reset", authController.resetPassword);
+authRouter.post(
+  "/auth/email/verify",
+  verifyEmailLimit,
+  authController.verifyEmail,
+);

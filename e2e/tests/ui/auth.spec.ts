@@ -36,28 +36,25 @@ test.describe("authentication", () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test("a new sign-up becomes a viewer and duplicate emails are rejected inline", async ({ page }) => {
-    const email = uniqueEmail("signup");
+  test("sign-up is invite-only once the workspace has an owner", async ({ page }) => {
+    await page.goto("/login");
+    await expect(page.getByText("Need an account? Ask a workspace admin for an invitation.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "GitHub" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Google" })).toHaveCount(0);
 
     await page.goto("/register");
-    await page.getByLabel("Full name").fill("Rita Register");
-    await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password", { exact: true }).fill("password123");
-    await page.getByRole("button", { name: "Create account" }).click();
-    await expect(page.getByRole("heading", { name: "Hi, Rita" })).toBeVisible();
+    await expect(page.getByText("Sign-up is invite-only")).toBeVisible();
+    await expect(page.getByText(/Pulse is invite-only\. Ask a workspace admin/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create account" })).toHaveCount(0);
 
-    await page.getByRole("button", { name: /Rita Register/ }).click();
-    await expect(page.getByRole("menu").getByText("Viewer")).toBeVisible();
-    await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: /Rita Register/ }).click();
-    await page.getByRole("menuitem", { name: "Log out" }).click();
+    await page.getByRole("link", { name: "Back to sign in" }).click();
+    await expect(page).toHaveURL(/\/login/);
+  });
 
-    await page.goto("/register");
-    await page.getByLabel("Full name").fill("Rita Again");
-    await page.getByLabel("Email").fill(email.toUpperCase());
-    await page.getByLabel("Password", { exact: true }).fill("password123");
-    await page.getByRole("button", { name: "Create account" }).click();
-    await expect(page.getByText("An account with this email already exists")).toBeVisible();
+  test("an invalid email verification link explains itself", async ({ page }) => {
+    await page.goto("/verify-email?token=not-a-real-token");
+    await expect(page.getByText("This verification link is invalid or has expired")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back to Pulse" })).toBeVisible();
   });
 
   test("forgot password sends a link that resets the password exactly once", async ({ page, ownerApi, browser }) => {

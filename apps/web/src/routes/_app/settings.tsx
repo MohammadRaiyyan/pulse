@@ -8,6 +8,7 @@ import {
   ConnectedAccounts,
   ConnectedAccountsSkeleton,
 } from "@/features/account/components/connected-accounts";
+import { authConfigQuery } from "@/features/auth/api/auth-api";
 import { ProfileForm } from "@/features/account/components/profile-form";
 import { SignOutEverywhere } from "@/features/account/components/sign-out-everywhere";
 
@@ -42,6 +43,7 @@ const SettingsPage = () => (
 export const Route = createFileRoute("/_app/settings")({
   loader: ({ context }) => {
     void context.queryClient.prefetchQuery(connectionsQuery);
+    void context.queryClient.prefetchQuery(authConfigQuery);
   },
   component: SettingsPage,
 });

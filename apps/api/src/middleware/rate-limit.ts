@@ -45,3 +45,8 @@ export const byBodyEmail = (req: Request) => {
 
   return typeof email === "string" ? email.trim().toLowerCase() : "none";
 };
+
+export const byIpAndBodyEmail = (req: Request) =>
+  `${byIp(req)}:${byBodyEmail(req)}`;
+
+export const byUser = (req: Request) => req.user?.id ?? byIp(req);

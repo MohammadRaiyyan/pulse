@@ -35,3 +35,8 @@ export const disconnectProvider = async (req: Request, res: Response) => {
   await accountService.disconnectProvider(currentUser(req), provider);
   res.status(204).end();
 };
+
+export const resendEmailVerification = async (req: Request, res: Response) => {
+  await accountService.resendEmailVerification(currentUser(req));
+  res.status(204).end();
+};

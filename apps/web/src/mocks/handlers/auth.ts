@@ -1,4 +1,5 @@
-import { DEFAULT_SIGNUP_ROLE, endpoints } from "@pulse/contracts";
+import { endpoints, oauthProviderSchema } from "@pulse/contracts";
+import { db } from "../db";
 import { createRateLimiter } from "../lib/rate-limit";
 import { noContent, errorResponse } from "../lib/responses";
 import { route } from "../lib/route";
@@ -8,7 +9,14 @@ import {
   readRefreshUser,
   withSession,
 } from "../lib/session";
-import { createUser, findUserByEmail, verifyPassword } from "../lib/users";
+import { findUserByEmail, verifyPassword } from "../lib/users";
+
+const authConfig = route(endpoints.authConfig, ({ respond }) =>
+  respond({
+    signupOpen: db.users.size === 0,
+    oauthProviders: oauthProviderSchema.options,
+  }),
+);
 
 const limitLoginAttempts = createRateLimiter({ limit: 5, windowMs: 60_000 });
 
@@ -23,11 +31,14 @@ const login = route(endpoints.login, ({ body, respond }) => {
   return respond(authResponse(user), withSession(user));
 });
 
-const register = route(endpoints.register, ({ body, respond }) => {
-  const user = createUser({ ...body, role: DEFAULT_SIGNUP_ROLE });
+const register = route(endpoints.register, () =>
+  errorResponse(
+    "FORBIDDEN",
+    "Pulse is invite-only. Ask a workspace admin to send you an invitation.",
+  ),
+);
 
-  return respond(authResponse(user), withSession(user, 201));
-});
+const verifyEmail = route(endpoints.verifyEmail, () => noContent());
 
 const refreshSession = route(
   endpoints.refreshSession,
@@ -51,8 +62,10 @@ const logoutEverywhere = route(endpoints.logoutEverywhere, () =>
 );
 
 export const authHandlers = [
+  authConfig,
   login,
   register,
+  verifyEmail,
   refreshSession,
   logout,
   logoutEverywhere,

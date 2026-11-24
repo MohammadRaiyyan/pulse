@@ -12,6 +12,9 @@ export const seedUsers = () =>
     name: account.name,
     email: account.email,
     role: account.role,
+    emailVerifiedAt: minutesAgo(
+      (DEMO_ACCOUNTS.length - index) * 30 * DAYS_IN_MINUTES,
+    ),
     createdAt: minutesAgo(
       (DEMO_ACCOUNTS.length - index) * 30 * DAYS_IN_MINUTES,
     ),

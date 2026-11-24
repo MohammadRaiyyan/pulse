@@ -28,7 +28,12 @@ export const setPassword = (userId: string, password: string) => {
 
 export const createUser = ({ password, ...profile }: NewUser) => {
   assertEmailAvailable(profile.email);
-  const user: User = { ...profile, id: newId(), createdAt: now() };
+  const user: User = {
+    ...profile,
+    id: newId(),
+    emailVerifiedAt: now(),
+    createdAt: now(),
+  };
   db.users.set(user.id, user);
   setPassword(user.id, password);
 

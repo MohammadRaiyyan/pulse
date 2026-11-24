@@ -3,6 +3,7 @@ import {
   loginSchema,
   registerSchema,
   resetPasswordSchema,
+  verifyEmailSchema,
 } from "@pulse/contracts";
 import type { Request, Response } from "express";
 import { unauthorized } from "../../lib/errors.ts";
@@ -14,6 +15,7 @@ import {
   setRefreshCookie,
 } from "../../security/refresh-cookie.ts";
 import * as authService from "./auth.service.ts";
+import * as emailVerificationService from "./email-verification.service.ts";
 
 const sendSession = (
   res: Response,
@@ -24,6 +26,10 @@ const sendSession = (
   res
     .status(status)
     .json({ accessToken: session.accessToken, user: session.user });
+};
+
+export const getConfig = async (_req: Request, res: Response) => {
+  res.json(await authService.getAuthConfig());
 };
 
 export const register = async (req: Request, res: Response) => {
@@ -71,5 +77,11 @@ export const forgotPassword = async (req: Request, res: Response) => {
 export const resetPassword = async (req: Request, res: Response) => {
   const input = validate(resetPasswordSchema, req.body);
   await authService.resetPassword(input);
+  res.status(204).end();
+};
+
+export const verifyEmail = async (req: Request, res: Response) => {
+  const input = validate(verifyEmailSchema, req.body);
+  await emailVerificationService.verifyEmail(input.token);
   res.status(204).end();
 };

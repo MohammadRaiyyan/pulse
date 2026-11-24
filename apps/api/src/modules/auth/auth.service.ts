@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
-import {
-  DEFAULT_SIGNUP_ROLE,
-  type LoginInput,
-  type RegisterInput,
-  type ResetPasswordInput,
+import type {
+  AuthConfig,
+  LoginInput,
+  RegisterInput,
+  ResetPasswordInput,
 } from "@pulse/contracts";
 import { env } from "../../config/env.ts";
 import { minutesFromNow } from "../../lib/dates.ts";
-import { AppError, unauthorized } from "../../lib/errors.ts";
+import { AppError, forbidden, unauthorized } from "../../lib/errors.ts";
 import { logger } from "../../lib/logger.ts";
 import { signAccessToken } from "../../security/access-token.ts";
 import {
@@ -18,15 +18,17 @@ import {
 import { REFRESH_TOKEN_TTL_MS } from "../../security/refresh-cookie.ts";
 import { rejectAccessTokensIssuedBeforeNow } from "../../security/session-revocation.ts";
 import { generateToken, hashToken } from "../../security/tokens.ts";
+import { configuredProviders } from "../oauth/oauth-providers.ts";
 import {
   type UserRecord,
-  countUsers,
   findUserByEmail,
   findUserById,
   findUserWithPasswordByEmail,
-  insertUser,
+  hasAnyUser,
+  insertFirstUserAsOwner,
 } from "../users/user.repository.ts";
 import { forgetCachedUser } from "../users/user.service.ts";
+import { trySendVerificationEmail } from "./email-verification.service.ts";
 import {
   completePasswordReset,
   findUsablePasswordResetToken,
@@ -66,15 +68,35 @@ export const startSession = async (
   return { accessToken: await signAccessToken(user.id), refreshToken, user };
 };
 
-export const register = async (input: RegisterInput) => {
-  const isFirstUser = (await countUsers()) === 0;
+const signupClosed = () =>
+  forbidden(
+    "Pulse is invite-only. Ask a workspace admin to send you an invitation.",
+  );
 
-  const user = await insertUser({
+const isSignupOpen = async () =>
+  env.OWNER_SIGNUP_ENABLED && !(await hasAnyUser());
+
+export const getAuthConfig = async (): Promise<AuthConfig> => ({
+  signupOpen: await isSignupOpen(),
+  oauthProviders: configuredProviders(),
+});
+
+export const register = async (input: RegisterInput) => {
+  if (!(await isSignupOpen())) {
+    throw signupClosed();
+  }
+
+  const user = await insertFirstUserAsOwner({
     name: input.name,
     email: input.email,
-    role: isFirstUser ? "owner" : DEFAULT_SIGNUP_ROLE,
     passwordHash: await hashPassword(input.password),
   });
+
+  if (!user) {
+    throw signupClosed();
+  }
+
+  await trySendVerificationEmail(user);
 
   return startSession(user);
 };
@@ -98,6 +120,7 @@ export const login = async (input: LoginInput) => {
     name: row.name,
     email: row.email,
     role: row.role,
+    emailVerifiedAt: row.emailVerifiedAt,
     createdAt: row.createdAt,
   });
 };
@@ -180,21 +203,25 @@ export const requestPasswordReset = async (email: string) => {
   );
 };
 
-export const resetPassword = async (input: ResetPasswordInput) => {
-  const token = await findUsablePasswordResetToken(hashToken(input.token));
+const invalidResetLink = () =>
+  new AppError("NOT_FOUND", "This reset link is invalid or has expired");
 
-  if (!token) {
-    throw new AppError(
-      "NOT_FOUND",
-      "This reset link is invalid or has expired",
-    );
+export const resetPassword = async (input: ResetPasswordInput) => {
+  const tokenHash = hashToken(input.token);
+
+  if (!(await findUsablePasswordResetToken(tokenHash))) {
+    throw invalidResetLink();
   }
 
-  await completePasswordReset(
-    token.id,
-    token.userId,
+  const userId = await completePasswordReset(
+    tokenHash,
     await hashPassword(input.password),
   );
-  await rejectAccessTokensIssuedBeforeNow(token.userId);
-  await forgetCachedUser(token.userId);
+
+  if (!userId) {
+    throw invalidResetLink();
+  }
+
+  await rejectAccessTokensIssuedBeforeNow(userId);
+  await forgetCachedUser(userId);
 };

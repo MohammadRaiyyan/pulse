@@ -1,19 +1,19 @@
 import { createHash } from "node:crypto";
-import {
-  DEFAULT_SIGNUP_ROLE,
-  type OAuthCallbackInput,
-  type OAuthIntent,
-  type OAuthProvider,
+import type {
+  OAuthCallbackInput,
+  OAuthIntent,
+  OAuthProvider,
 } from "@pulse/contracts";
-import { AppError, unauthorized } from "../../lib/errors.ts";
+import { env } from "../../config/env.ts";
+import { AppError, forbidden, unauthorized } from "../../lib/errors.ts";
 import { redis } from "../../lib/redis.ts";
-import { generateToken } from "../../security/tokens.ts";
+import { OAUTH_NONCE_TTL_SECONDS } from "../../security/oauth-nonce-cookie.ts";
+import { generateToken, hashToken } from "../../security/tokens.ts";
 import { startSession } from "../auth/auth.service.ts";
 import {
-  countUsers,
   findUserByEmail,
   findUserById,
-  insertUser,
+  insertFirstUserAsOwner,
 } from "../users/user.repository.ts";
 import {
   findLinkedAccountByProviderAccount,
@@ -23,16 +23,16 @@ import {
   type OAuthProfile,
   callbackUrlFor,
   fetchProfile,
+  isProviderConfigured,
   providerConfigs,
 } from "./oauth-providers.ts";
-
-const STATE_TTL_SECONDS = 600;
 
 type StoredState = {
   provider: OAuthProvider;
   intent: OAuthIntent;
   redirectTo: string;
   codeVerifier: string;
+  nonceHash: string;
   userId: string | null;
 };
 
@@ -44,10 +44,7 @@ const defaultRedirect: Record<OAuthIntent, string> = {
 };
 
 const assertConfigured = (provider: OAuthProvider) => {
-  if (
-    !providerConfigs[provider].clientId ||
-    !providerConfigs[provider].clientSecret
-  ) {
+  if (!isProviderConfigured(provider)) {
     throw new AppError(
       "NOT_FOUND",
       `Sign-in with ${provider} is not configured on this server`,
@@ -68,11 +65,13 @@ export const createAuthorizationUrl = async (
 
   const state = generateToken();
   const codeVerifier = generateToken();
+  const nonce = generateToken();
   const storedState: StoredState = {
     provider,
     intent,
     redirectTo: redirectTo ?? defaultRedirect[intent],
     codeVerifier,
+    nonceHash: hashToken(nonce),
     userId,
   };
 
@@ -80,7 +79,7 @@ export const createAuthorizationUrl = async (
     stateKey(state),
     JSON.stringify(storedState),
     "EX",
-    STATE_TTL_SECONDS,
+    OAUTH_NONCE_TTL_SECONDS,
   );
 
   const config = providerConfigs[provider];
@@ -93,7 +92,7 @@ export const createAuthorizationUrl = async (
   url.searchParams.set("code_challenge", toCodeChallenge(codeVerifier));
   url.searchParams.set("code_challenge_method", "S256");
 
-  return url.href;
+  return { authorizationUrl: url.href, nonce };
 };
 
 const linkToExistingUser = async (
@@ -112,7 +111,45 @@ const linkToExistingUser = async (
   return user;
 };
 
-const findOrCreateUser = async (
+const createOwnerFromProfile = async (profile: OAuthProfile) => {
+  const owner = env.OWNER_SIGNUP_ENABLED
+    ? await insertFirstUserAsOwner({
+        name: profile.name,
+        email: profile.email,
+        passwordHash: null,
+        emailVerifiedAt: new Date(),
+      })
+    : undefined;
+
+  if (!owner) {
+    throw forbidden(
+      `No Pulse account uses ${profile.email}. Pulse is invite-only, so ask a workspace admin to send you an invitation.`,
+    );
+  }
+
+  return owner;
+};
+
+const findUserForProfile = async (
+  provider: OAuthProvider,
+  profile: OAuthProfile,
+) => {
+  const existingUser = await findUserByEmail(profile.email);
+
+  if (!existingUser) {
+    return createOwnerFromProfile(profile);
+  }
+
+  if (!existingUser.emailVerifiedAt) {
+    throw forbidden(
+      `The Pulse account for ${profile.email} has not verified its email yet. Sign in with your password, verify your email, then connect ${providerConfigs[provider].label} from account settings.`,
+    );
+  }
+
+  return existingUser;
+};
+
+const signInWithProvider = async (
   provider: OAuthProvider,
   profile: OAuthProfile,
 ) => {
@@ -126,32 +163,29 @@ const findOrCreateUser = async (
     return linkedUser;
   }
 
-  const existingUser = await findUserByEmail(profile.email);
-  const isFirstUser = (await countUsers()) === 0;
-
-  const user =
-    existingUser ??
-    (await insertUser({
-      name: profile.name,
-      email: profile.email,
-      role: isFirstUser ? "owner" : DEFAULT_SIGNUP_ROLE,
-      passwordHash: null,
-    }));
+  const user = await findUserForProfile(provider, profile);
 
   await saveLinkedAccount({ userId: user.id, provider, ...profile });
 
   return user;
 };
 
+const invalidState = () => unauthorized("OAuth state or code is invalid");
+
 export const completeOAuth = async (
   provider: OAuthProvider,
   input: OAuthCallbackInput,
+  nonce: string | undefined,
 ) => {
   const rawState = await redis.getdel(stateKey(input.state));
   const state = rawState ? (JSON.parse(rawState) as StoredState) : null;
 
   if (!state || state.provider !== provider) {
-    throw unauthorized("OAuth state or code is invalid");
+    throw invalidState();
+  }
+
+  if (!nonce || hashToken(nonce) !== state.nonceHash) {
+    throw invalidState();
   }
 
   const profile = await fetchProfile(provider, input.code, state.codeVerifier);
@@ -159,7 +193,7 @@ export const completeOAuth = async (
   const user =
     state.intent === "link" && state.userId
       ? await linkToExistingUser(state.userId, provider, profile)
-      : await findOrCreateUser(provider, profile);
+      : await signInWithProvider(provider, profile);
 
   const session = await startSession(user);
 
