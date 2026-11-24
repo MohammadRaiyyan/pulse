@@ -33,7 +33,7 @@
     "@types/node": "catalog:",
     "oxlint": "catalog:",
     "prettier": "^3.10.1",
-    "turbo": "^2.11.11",
+    "turbo": "^2.11.13",
     "typescript": "catalog:"
   }
 }
