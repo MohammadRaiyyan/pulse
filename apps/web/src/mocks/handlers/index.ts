@@ -9,6 +9,7 @@ import { memberHandlers } from "./members";
 import { monitorHandlers } from "./monitors";
 import { oauthHandlers } from "./oauth";
 import { passwordHandlers } from "./password";
+import { serviceHandlers } from "./services";
 import { webhookHandlers } from "./webhooks";
 
 export const handlers = [
@@ -19,6 +20,7 @@ export const handlers = [
   ...dashboardHandlers,
   ...monitorHandlers,
   ...webhookHandlers,
+  ...serviceHandlers,
   ...alertChannelHandlers,
   ...incidentHandlers,
   ...memberHandlers,

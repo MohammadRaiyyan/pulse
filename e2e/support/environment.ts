@@ -16,6 +16,7 @@ export const backendEnvironment = {
   INVITE_SECRET: "e2e-invite-secret-that-is-at-least-32-characters-long",
   TRUST_PROXY: "loopback",
   API_RATE_LIMIT_PER_MINUTE: "5000",
+  PUBLIC_STATUS_RATE_LIMIT_PER_MINUTE: "1000",
   CHECK_DISPATCH_INTERVAL_MS: "2000",
   SILENCE_CHECK_INTERVAL_MS: "5000",
   ALLOW_PRIVATE_NETWORK_TARGETS: "true",

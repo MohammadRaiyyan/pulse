@@ -27,6 +27,7 @@ const toMonitor = (input: CreateMonitorInput): Monitor => {
   return {
     ...input,
     id: newId(),
+    serviceId: input.serviceId ?? null,
     status: "pending",
     isPaused: false,
     failureThreshold: input.failureThreshold ?? DEFAULT_FAILURE_THRESHOLD,

@@ -7,7 +7,7 @@ import type {
   IncidentTransition,
 } from "@pulse/contracts";
 import { enqueueAlert } from "../../jobs/queues.ts";
-import { cacheKeys, invalidate } from "../../lib/cache.ts";
+import { invalidate, statusCacheKeys } from "../../lib/cache.ts";
 import { conflict, notFound } from "../../lib/errors.ts";
 import { logger } from "../../lib/logger.ts";
 import { toLimitOffset, toPage } from "../../lib/pagination.ts";
@@ -72,7 +72,7 @@ export const transitionIncident = async (
     );
   }
 
-  await invalidate(cacheKeys.dashboardSummary);
+  await invalidate(...statusCacheKeys);
   publishChange({ type: "incident.updated", id: updated.id });
 
   return updated;
@@ -92,7 +92,7 @@ const escalateIncidentForSource = async (
     { incidentId: incident.id, source: source.name, cause },
     "Incident escalated to critical",
   );
-  await invalidate(cacheKeys.dashboardSummary);
+  await invalidate(...statusCacheKeys);
   await notifyChannels(source.alertChannelIds, "incident.opened", incident.id);
   publishChange({ type: "incident.updated", id: incident.id });
 };
@@ -121,7 +121,7 @@ export const openIncidentForSource = async (
     { incidentId: incident.id, source: source.name, cause, severity },
     "Incident opened",
   );
-  await invalidate(cacheKeys.dashboardSummary);
+  await invalidate(...statusCacheKeys);
 
   if (severity === "critical") {
     await notifyChannels(
@@ -148,7 +148,7 @@ export const resolveIncidentForSource = async (
     { incidentId: incident.id, source: source.name, reason },
     "Incident resolved",
   );
-  await invalidate(cacheKeys.dashboardSummary);
+  await invalidate(...statusCacheKeys);
 
   if (incident.severity === "critical" && reason === "recovered") {
     await notifyChannels(
@@ -175,5 +175,5 @@ export const closeIncidentsForSource = async (sourceId: string) => {
     publishChange({ type: "incident.updated", id: incident.id });
   }
 
-  await invalidate(cacheKeys.dashboardSummary);
+  await invalidate(...statusCacheKeys);
 };

@@ -4,7 +4,7 @@ import type {
   MonitorStatus,
   Role,
 } from "@pulse/contracts";
-import { sql as rawSql } from "drizzle-orm";
+import { inArray, sql as rawSql } from "drizzle-orm";
 import { isLocalEnvironment } from "../config/env.ts";
 import { daysFromNow, minutesFromNow } from "../lib/dates.ts";
 import { logger } from "../lib/logger.ts";
@@ -17,6 +17,8 @@ import {
   invitations,
   monitorAlertChannels,
   monitors,
+  services,
+  statusPageSettings,
   users,
   webhookAlertChannels,
   webhookEvents,
@@ -151,7 +153,7 @@ const seedDailyHistory = async (monitorIds: string[]) => {
 
 const clearDatabase = async () => {
   await db.execute(
-    rawSql`truncate table users, alert_channels, monitors, webhooks, incidents, invitations restart identity cascade`,
+    rawSql`truncate table users, alert_channels, services, monitors, webhooks, incidents, invitations, status_page_settings restart identity cascade`,
   );
   for (const pattern of ["cache:*", "rate:*"]) {
     const keys = await redis.keys(pattern);
@@ -354,8 +356,59 @@ for (const seed of monitorSeeds) {
 await rebuildDailyStats();
 await seedDailyHistory(seededMonitors.map((monitor) => monitor.id));
 
-const { github } = await seedWebhooks(channelIds);
+const { stripe, github } = await seedWebhooks(channelIds);
 const [publicApi, payments, legacy] = seededMonitors;
+
+const seedServices = async () => {
+  const [publicService, integrationsService, internalService] = await db
+    .insert(services)
+    .values([
+      {
+        name: "Public API",
+        description: "The REST API and payment processing our customers use.",
+        isPublic: true,
+        position: 0,
+      },
+      {
+        name: "Integrations",
+        description: "Incoming events from Stripe and GitHub.",
+        isPublic: true,
+        position: 1,
+      },
+      {
+        name: "Internal",
+        description: "Back-office systems used by the team.",
+        isPublic: false,
+        position: 2,
+      },
+    ])
+    .returning();
+
+  if (!publicService || !internalService || !integrationsService || !publicApi || !payments || !legacy) {
+    throw new Error("Failed to seed services");
+  }
+
+  await db
+    .update(monitors)
+    .set({ serviceId: publicService.id })
+    .where(inArray(monitors.id, [publicApi.id, payments.id]));
+  await db
+    .update(monitors)
+    .set({ serviceId: internalService.id })
+    .where(inArray(monitors.id, [legacy.id]));
+  await db
+    .update(webhooks)
+    .set({ serviceId: integrationsService.id })
+    .where(inArray(webhooks.id, [stripe.id, github.id]));
+
+  await db.insert(statusPageSettings).values({
+    isEnabled: true,
+    title: "Pulse status",
+    description: "Live health of the Pulse demo services.",
+  });
+};
+
+await seedServices();
 
 const [ownerUser, adminUser] = seededUsers;
 

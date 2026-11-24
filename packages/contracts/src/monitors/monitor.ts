@@ -48,6 +48,7 @@ export const createMonitorSchema = z.object({
   expectedStatusCode: boundedIntSchema(MONITOR_LIMITS.statusCode),
   failureThreshold: boundedIntSchema(MONITOR_LIMITS.failureThreshold).optional(),
   alertChannelIds: z.array(idSchema),
+  serviceId: idSchema.nullable().optional(),
 });
 
 export type CreateMonitorInput = z.infer<typeof createMonitorSchema>;
@@ -63,6 +64,7 @@ export const monitorSchema = createMonitorSchema.extend({
   status: monitorStatusSchema,
   isPaused: z.boolean(),
   failureThreshold: boundedIntSchema(MONITOR_LIMITS.failureThreshold),
+  serviceId: idSchema.nullable(),
   consecutiveFailures: nonNegativeIntSchema,
   lastCheckedAt: timestampSchema.nullable(),
   lastResponseTimeMs: nonNegativeIntSchema.nullable(),

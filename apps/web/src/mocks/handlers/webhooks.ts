@@ -31,6 +31,7 @@ const toWebhook = (input: CreateWebhookInput): Webhook => {
   return {
     ...input,
     id: newId(),
+    serviceId: input.serviceId ?? null,
     ingestUrl: ingestUrlFor(toSlug(input.name)),
     status: "pending",
     eventCount: 0,

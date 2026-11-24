@@ -6,6 +6,7 @@ import {
 import type { ResourceFormProps } from "@/components/dialogs/resource-form-props";
 import { useSchemaForm } from "@/components/form/app-form";
 import { AlertChannelsField } from "@/features/alert-channels/components/alert-channels-field";
+import { ServiceField } from "@/features/services/components/service-field";
 import { httpMethodOptions } from "../monitor-meta";
 
 export const MonitorForm = ({
@@ -82,6 +83,9 @@ export const MonitorForm = ({
               max={MONITOR_LIMITS.failureThreshold.max}
             />
           )}
+        </form.AppField>
+        <form.AppField name="serviceId">
+          {() => <ServiceField />}
         </form.AppField>
         <form.AppField name="alertChannelIds">
           {() => (

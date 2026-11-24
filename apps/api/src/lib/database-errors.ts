@@ -32,6 +32,11 @@ const unknownAlertChannel = () =>
     alertChannelIds: ["Unknown alert channel"],
   });
 
+const unknownService = () =>
+  badRequest("Some fields are invalid", {
+    serviceId: ["Unknown service"],
+  });
+
 const errorsByConstraint: Record<string, () => AppError> = {
   users_email_unique: () =>
     conflict("Email already in use", {
@@ -46,6 +51,12 @@ const errorsByConstraint: Record<string, () => AppError> = {
     conflict("This account is already connected to another user"),
   monitor_alert_channels_channel_id_alert_channels_id_fk: unknownAlertChannel,
   webhook_alert_channels_channel_id_alert_channels_id_fk: unknownAlertChannel,
+  monitors_service_id_services_id_fk: unknownService,
+  webhooks_service_id_services_id_fk: unknownService,
+  services_name_unique: () =>
+    conflict("Service name already in use", {
+      name: ["A service with this name already exists"],
+    }),
 };
 
 export const isUniqueViolation = (error: unknown) =>
