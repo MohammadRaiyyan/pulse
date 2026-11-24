@@ -29,7 +29,10 @@ export const ResetPasswordForm = ({ token }: { token: string }) => {
         ...withoutConfirmation(values),
         token,
       });
-      toast.success("Password updated. Sign in with your new password.");
+      toast.success("Password updated. Sign in with your new password.", {
+        description:
+          "For your security, GitHub and Google sign-in were disconnected. Reconnect them in Settings.",
+      });
       await navigate({ to: "/login" });
     },
   });

@@ -82,6 +82,81 @@ export const invitationEmail = ({
     footer: "If you were not expecting this, you can ignore this email.",
   });
 
+const formatEventTime = (date: Date) => date.toUTCString();
+
+const NOT_YOU_FOOTER =
+  "If this was not you, reset your password from the Pulse sign-in page right away and contact your workspace admin.";
+
+export const passwordChangedEmail = ({
+  changedAt,
+  disconnectedProviders,
+}: {
+  changedAt: Date;
+  disconnectedProviders: string[];
+}) =>
+  render({
+    subject: "Your Pulse password was changed",
+    paragraphs: [
+      `The password for your Pulse account was changed on ${formatEventTime(changedAt)}.`,
+      "You have been signed out on every other device.",
+      ...(disconnectedProviders.length > 0
+        ? [
+            `For your security we also disconnected ${disconnectedProviders.join(" and ")} sign-in. Reconnect it in Settings after you sign in.`,
+          ]
+        : []),
+    ],
+    footer: NOT_YOU_FOOTER,
+  });
+
+export const emailChangedEmail = ({
+  newEmail,
+  changedAt,
+}: {
+  newEmail: string;
+  changedAt: Date;
+}) =>
+  render({
+    subject: "Your email address was changed",
+    paragraphs: [
+      `The email address for your Pulse account was changed to ${newEmail} on ${formatEventTime(changedAt)}.`,
+      "Pulse will send account email to the new address from now on.",
+    ],
+    footer:
+      "If this was not you, contact your workspace admin right away so they can secure your account.",
+  });
+
+export const ownershipTransferredEmail = ({
+  newOwnerName,
+  transferredAt,
+}: {
+  newOwnerName: string;
+  transferredAt: Date;
+}) =>
+  render({
+    subject: "You transferred ownership of your Pulse workspace",
+    paragraphs: [
+      `You transferred ownership of the Pulse workspace to ${newOwnerName} on ${formatEventTime(transferredAt)}.`,
+      `You are now an admin. Only ${newOwnerName} can change or remove admins or transfer ownership again.`,
+    ],
+    footer: NOT_YOU_FOOTER,
+  });
+
+export const ownershipReceivedEmail = ({
+  previousOwnerName,
+  transferredAt,
+}: {
+  previousOwnerName: string;
+  transferredAt: Date;
+}) =>
+  render({
+    subject: "You are now the owner of your Pulse workspace",
+    paragraphs: [
+      `${previousOwnerName} transferred ownership of the Pulse workspace to you on ${formatEventTime(transferredAt)}.`,
+      `As the owner you can change or remove admins and transfer ownership. ${previousOwnerName} is now an admin.`,
+    ],
+    footer: "If you did not expect this, contact your workspace admin.",
+  });
+
 export const alertEmail = ({
   subject,
   message,
