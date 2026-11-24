@@ -17,6 +17,7 @@ import {
 import { MonitorActions } from "@/features/monitors/components/monitor-actions";
 import { MonitorDetailLayout } from "@/features/monitors/components/monitor-detail-layout";
 import { MonitorDetailSkeleton } from "@/features/monitors/components/monitor-detail-skeleton";
+import { MonitorRequestSummary } from "@/features/monitors/components/monitor-request-summary";
 import { MonitorResponseTime } from "@/features/monitors/components/monitor-response-time";
 import { MonitorStats } from "@/features/monitors/components/monitor-stats";
 import { MonitorStateBadge } from "@/features/monitors/components/monitor-state-badge";
@@ -39,6 +40,7 @@ const MonitorDetailPage = () => {
         <>
           <MonitorTarget monitor={monitor} />
           <MonitorStats monitor={monitor} />
+          <MonitorRequestSummary monitor={monitor} />
         </>
       }
       responseTime={

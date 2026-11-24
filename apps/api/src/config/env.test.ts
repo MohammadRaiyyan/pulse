@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseEnv } from "./env.ts";
+import { DEVELOPMENT_ENCRYPTION_KEY, parseEnv } from "./env.ts";
 import { parseTrustProxy } from "./trust-proxy.ts";
 
 const baseEnv = {
@@ -11,6 +11,7 @@ const baseEnv = {
   INVITE_SECRET: "a-production-invite-secret-that-is-long-enough",
   SMTP_HOST: "smtp.example.com",
   MAIL_FROM: "Pulse <alerts@pulse.example.com>",
+  ENCRYPTION_KEY: "7fnlwIBVNDyDcc/RxBcBzyzeQE2c+mfo2PT/6XjuejY=",
 };
 
 const issuePaths = (source: Record<string, string | undefined>) => {
@@ -68,6 +69,22 @@ describe("environment validation", () => {
         NODE_ENV: "development",
         INVITE_SECRET: placeholder,
       }).success,
+    ).toBe(true);
+  });
+
+  it("requires a real 32-byte encryption key in production only", () => {
+    expect(issuePaths({ ...baseEnv, ENCRYPTION_KEY: undefined })).toContain(
+      "ENCRYPTION_KEY",
+    );
+    expect(
+      issuePaths({ ...baseEnv, ENCRYPTION_KEY: DEVELOPMENT_ENCRYPTION_KEY }),
+    ).toContain("ENCRYPTION_KEY");
+    expect(
+      issuePaths({ ...baseEnv, ENCRYPTION_KEY: Buffer.alloc(16).toString("base64") }),
+    ).toContain("ENCRYPTION_KEY");
+    expect(
+      parseEnv({ ...baseEnv, NODE_ENV: "development", ENCRYPTION_KEY: undefined })
+        .success,
     ).toBe(true);
   });
 

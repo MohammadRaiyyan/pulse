@@ -13,4 +13,7 @@ export const defaultMonitorInput: CreateMonitorInput = {
   failureThreshold: DEFAULT_FAILURE_THRESHOLD,
   alertChannelIds: [],
   serviceId: null,
+  requestHeaders: [],
+  requestBody: null,
+  requestContentType: null,
 };

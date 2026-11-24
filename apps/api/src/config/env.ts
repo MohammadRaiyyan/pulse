@@ -11,6 +11,20 @@ const booleanString = z
   .enum(["true", "false"])
   .transform((value) => value === "true");
 
+export const DEVELOPMENT_ENCRYPTION_KEY =
+  "rvv0NkHBaPfbgBxSA58ywKQC0YX441xylvV/ROVjcGY=";
+
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+
+const encryptionKey = z
+  .string()
+  .trim()
+  .refine(
+    (value) =>
+      BASE64.test(value) && Buffer.from(value, "base64").length === 32,
+    "ENCRYPTION_KEY must be 32 bytes encoded as base64 (openssl rand -base64 32)",
+  );
+
 const trustProxy = z
   .string()
   .default("loopback")
@@ -37,6 +51,7 @@ const envSchema = z.object({
   REDIS_URL: z.url(),
   JWT_SECRET: z.string().min(32),
   INVITE_SECRET: z.string().min(32),
+  ENCRYPTION_KEY: emptyAsUnset(encryptionKey),
   COOKIE_SECURE: emptyAsUnset(booleanString),
   TRUST_PROXY: trustProxy,
   METRICS_TOKEN: emptyAsUnset(z.string().min(32)),
@@ -94,6 +109,18 @@ const productionRules = (values: Env, context: z.RefinementCtx) => {
     }
   }
 
+  if (!values.ENCRYPTION_KEY) {
+    invalid(
+      "ENCRYPTION_KEY",
+      "ENCRYPTION_KEY is required in production (generate one with openssl rand -base64 32)",
+    );
+  } else if (values.ENCRYPTION_KEY === DEVELOPMENT_ENCRYPTION_KEY) {
+    invalid(
+      "ENCRYPTION_KEY",
+      "ENCRYPTION_KEY still has the example development value",
+    );
+  }
+
   if (values.MAIL_TRANSPORT !== "smtp") {
     invalid("MAIL_TRANSPORT", "Production must send email over SMTP");
   }
@@ -119,7 +146,10 @@ if (!result.success) {
   process.exit(1);
 }
 
-export const env = result.data;
+export const env = {
+  ...result.data,
+  ENCRYPTION_KEY: result.data.ENCRYPTION_KEY ?? DEVELOPMENT_ENCRYPTION_KEY,
+};
 
 export const isProduction = env.NODE_ENV === "production";
 

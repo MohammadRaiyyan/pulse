@@ -62,6 +62,7 @@ describe("mailer", () => {
       NODE_ENV: "production",
       SMTP_HOST: "smtp.example.com",
       MAIL_FROM: "Pulse <alerts@example.com>",
+      ENCRYPTION_KEY: "7fnlwIBVNDyDcc/RxBcBzyzeQE2c+mfo2PT/6XjuejY=",
     });
 
     expect(result.status).toBe(0);

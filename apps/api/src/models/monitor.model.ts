@@ -1,4 +1,8 @@
-import { DEFAULT_FAILURE_THRESHOLD, MONITOR_LIMITS } from "@pulse/contracts";
+import {
+  DEFAULT_FAILURE_THRESHOLD,
+  MONITOR_LIMITS,
+  type RequestContentType,
+} from "@pulse/contracts";
 import { sql } from "drizzle-orm";
 import {
   bigint,
@@ -7,6 +11,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   real,
@@ -21,6 +26,12 @@ import {
   httpMethodEnum,
   monitorStatusEnum,
 } from "./enums.ts";
+
+export type StoredHeader = {
+  name: string;
+  value: string;
+  secret: boolean;
+};
 
 export const monitors = pgTable(
   "monitors",
@@ -39,6 +50,9 @@ export const monitors = pgTable(
     lastCheckedAt: timestamp({ withTimezone: true }),
     lastResponseTimeMs: integer(),
     uptimePercent: real(),
+    requestHeaders: jsonb().$type<StoredHeader[]>().notNull().default([]),
+    requestBody: text(),
+    requestContentType: text().$type<RequestContentType>(),
     serviceId: uuid().references(() => services.id, { onDelete: "set null" }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
