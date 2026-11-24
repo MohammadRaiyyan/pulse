@@ -1,0 +1,36 @@
+import { Router } from "express";
+import { byIp, rateLimit } from "./middleware/rate-limit.ts";
+import { accountRouter } from "./modules/account/account.routes.ts";
+import { alertChannelRouter } from "./modules/alert-channels/alert-channel.routes.ts";
+import { authRouter } from "./modules/auth/auth.routes.ts";
+import { dashboardRouter } from "./modules/dashboard/dashboard.routes.ts";
+import { healthRouter } from "./modules/health/health.routes.ts";
+import { incidentRouter } from "./modules/incidents/incident.routes.ts";
+import { invitationRouter } from "./modules/invitations/invitation.routes.ts";
+import { memberRouter } from "./modules/members/member.routes.ts";
+import { monitorRouter } from "./modules/monitors/monitor.routes.ts";
+import { oauthRouter } from "./modules/oauth/oauth.routes.ts";
+import { webhookRouter } from "./modules/webhooks/webhook.routes.ts";
+
+const apiLimit = rateLimit({
+  name: "api",
+  limit: 300,
+  windowSeconds: 60,
+  key: byIp,
+});
+
+export const apiRouter = Router();
+
+apiRouter.use(healthRouter);
+apiRouter.use(apiLimit);
+
+apiRouter.use(authRouter);
+apiRouter.use(oauthRouter);
+apiRouter.use(accountRouter);
+apiRouter.use(dashboardRouter);
+apiRouter.use(monitorRouter);
+apiRouter.use(webhookRouter);
+apiRouter.use(alertChannelRouter);
+apiRouter.use(incidentRouter);
+apiRouter.use(memberRouter);
+apiRouter.use(invitationRouter);

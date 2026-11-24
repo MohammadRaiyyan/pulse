@@ -1,0 +1,240 @@
+import type {
+  CheckOutcome,
+  CreateMonitorInput,
+  MonitorListQuery,
+  UpdateMonitorInput,
+} from "@pulse/contracts";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNull,
+  lt,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
+import { type Transaction, db } from "../../db/client.ts";
+import {
+  checkResults,
+  monitorAlertChannels,
+  monitors,
+} from "../../models/index.ts";
+
+export type CheckMeasurement = {
+  outcome: CheckOutcome;
+  statusCode: number | null;
+  responseTimeMs: number;
+  errorMessage: string | null;
+};
+
+const UPTIME_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+const buildListFilter = (query: MonitorListQuery) => {
+  const search = query.search ? `%${query.search}%` : undefined;
+
+  return and(
+    query.status ? eq(monitors.status, query.status) : undefined,
+    search
+      ? or(ilike(monitors.name, search), ilike(monitors.url, search))
+      : undefined,
+  );
+};
+
+export const listMonitors = async (
+  query: MonitorListQuery,
+  limit: number,
+  offset: number,
+) => {
+  const where = buildListFilter(query);
+
+  const [rows, [totalRow]] = await Promise.all([
+    db
+      .select()
+      .from(monitors)
+      .where(where)
+      .orderBy(desc(monitors.createdAt))
+      .limit(limit)
+      .offset(offset),
+    db.select({ total: count() }).from(monitors).where(where),
+  ]);
+
+  return { rows, total: totalRow?.total ?? 0 };
+};
+
+export const findMonitor = async (id: string) => {
+  const [monitor] = await db.select().from(monitors).where(eq(monitors.id, id));
+  return monitor;
+};
+
+export const findChannelIdsByMonitorIds = async (monitorIds: string[]) => {
+  const channelIdsByMonitor = new Map<string, string[]>();
+
+  for (const monitorId of monitorIds) {
+    channelIdsByMonitor.set(monitorId, []);
+  }
+
+  if (monitorIds.length === 0) {
+    return channelIdsByMonitor;
+  }
+
+  const links = await db
+    .select()
+    .from(monitorAlertChannels)
+    .where(inArray(monitorAlertChannels.monitorId, monitorIds));
+
+  for (const link of links) {
+    channelIdsByMonitor.get(link.monitorId)?.push(link.channelId);
+  }
+
+  return channelIdsByMonitor;
+};
+
+const replaceChannelLinks = async (
+  tx: Transaction,
+  monitorId: string,
+  channelIds: string[],
+) => {
+  await tx
+    .delete(monitorAlertChannels)
+    .where(eq(monitorAlertChannels.monitorId, monitorId));
+
+  if (channelIds.length > 0) {
+    const uniqueIds = [...new Set(channelIds)];
+    await tx
+      .insert(monitorAlertChannels)
+      .values(uniqueIds.map((channelId) => ({ monitorId, channelId })));
+  }
+};
+
+export const insertMonitor = (input: CreateMonitorInput) =>
+  db.transaction(async (tx) => {
+    const { alertChannelIds, ...values } = input;
+    const [monitor] = await tx.insert(monitors).values(values).returning();
+
+    if (!monitor) {
+      throw new Error("Failed to insert monitor");
+    }
+
+    await replaceChannelLinks(tx, monitor.id, alertChannelIds);
+
+    return monitor;
+  });
+
+export const updateMonitor = (id: string, input: UpdateMonitorInput) =>
+  db.transaction(async (tx) => {
+    const { alertChannelIds, ...values } = input;
+    const [monitor] = await tx
+      .update(monitors)
+      .set({ ...values, updatedAt: new Date() })
+      .where(eq(monitors.id, id))
+      .returning();
+
+    if (monitor && alertChannelIds) {
+      await replaceChannelLinks(tx, id, alertChannelIds);
+    }
+
+    return monitor;
+  });
+
+export const deleteMonitor = async (id: string) => {
+  const [monitor] = await db
+    .delete(monitors)
+    .where(eq(monitors.id, id))
+    .returning({ id: monitors.id });
+  return monitor;
+};
+
+export const findChannelIdsForMonitor = async (monitorId: string) => {
+  const channelIds = await findChannelIdsByMonitorIds([monitorId]);
+  return channelIds.get(monitorId) ?? [];
+};
+
+export const listChecks = async (
+  monitorId: string,
+  limit: number,
+  offset: number,
+) => {
+  const where = eq(checkResults.monitorId, monitorId);
+
+  const [rows, [totalRow]] = await Promise.all([
+    db
+      .select()
+      .from(checkResults)
+      .where(where)
+      .orderBy(desc(checkResults.checkedAt))
+      .limit(limit)
+      .offset(offset),
+    db.select({ total: count() }).from(checkResults).where(where),
+  ]);
+
+  return { rows, total: totalRow?.total ?? 0 };
+};
+
+export const findDueMonitors = () =>
+  db
+    .select({ id: monitors.id, intervalSeconds: monitors.intervalSeconds })
+    .from(monitors)
+    .where(
+      and(
+        eq(monitors.isPaused, false),
+        or(
+          isNull(monitors.lastCheckedAt),
+          lte(
+            sql`${monitors.lastCheckedAt} + make_interval(secs => ${monitors.intervalSeconds})`,
+            sql`now()`,
+          ),
+        ),
+      ),
+    );
+
+export const saveCheckResult = (
+  monitorId: string,
+  measurement: CheckMeasurement,
+) =>
+  db.transaction(async (tx) => {
+    const checkedAt = new Date();
+
+    await tx
+      .insert(checkResults)
+      .values({ monitorId, checkedAt, ...measurement });
+
+    const [stats] = await tx
+      .select({
+        uptimePercent:
+          sql<number>`100.0 * count(*) filter (where ${checkResults.outcome} <> 'down') / count(*)`.mapWith(
+            Number,
+          ),
+      })
+      .from(checkResults)
+      .where(
+        and(
+          eq(checkResults.monitorId, monitorId),
+          gte(
+            checkResults.checkedAt,
+            new Date(checkedAt.getTime() - UPTIME_WINDOW_MS),
+          ),
+        ),
+      );
+
+    const [monitor] = await tx
+      .update(monitors)
+      .set({
+        status: measurement.outcome,
+        lastCheckedAt: checkedAt,
+        lastResponseTimeMs: measurement.responseTimeMs,
+        uptimePercent: stats?.uptimePercent ?? null,
+      })
+      .where(eq(monitors.id, monitorId))
+      .returning();
+
+    return monitor;
+  });
+
+export const deleteChecksOlderThan = async (date: Date) => {
+  await db.delete(checkResults).where(lt(checkResults.checkedAt, date));
+};

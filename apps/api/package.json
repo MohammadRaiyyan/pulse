@@ -1,0 +1,43 @@
+{
+  "name": "api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --env-file=.env src/server.ts",
+    "worker": "node --watch --env-file=.env src/worker.ts",
+    "start": "node --env-file=.env src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "node --env-file=.env src/db/seed.ts"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "catalog:",
+    "@pulse/contracts": "workspace:*",
+    "bullmq": "catalog:",
+    "cookie-parser": "catalog:",
+    "cors": "catalog:",
+    "drizzle-orm": "catalog:",
+    "express": "catalog:",
+    "helmet": "catalog:",
+    "ioredis": "catalog:",
+    "jose": "catalog:",
+    "pino": "catalog:",
+    "pino-http": "catalog:",
+    "postgres": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "catalog:",
+    "@types/cors": "catalog:",
+    "@types/express": "catalog:",
+    "@types/node": "catalog:",
+    "drizzle-kit": "catalog:",
+    "pino-pretty": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
