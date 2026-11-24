@@ -3,7 +3,9 @@ import { env } from "./config/env.ts";
 import { sql } from "./db/client.ts";
 import { closeQueues } from "./jobs/queues.ts";
 import { logger } from "./lib/logger.ts";
+import { closeChangeSubscriber } from "./lib/realtime.ts";
 import { redis } from "./lib/redis.ts";
+import { closeAllLiveStreams } from "./modules/events/live-stream.service.ts";
 
 const server = createApp().listen(env.PORT, () => {
   logger.info(`API listening on http://localhost:${env.PORT}`);
@@ -12,7 +14,10 @@ const server = createApp().listen(env.PORT, () => {
 const shutdown = async (signal: string) => {
   logger.info(`${signal} received, shutting down API`);
 
+  closeAllLiveStreams();
+
   server.close(async () => {
+    await closeChangeSubscriber();
     await closeQueues();
     await redis.quit();
     await sql.end({ timeout: 5 });

@@ -7,7 +7,7 @@ import { getCachedUser } from "../modules/users/user.service.ts";
 
 const BEARER_PREFIX = "Bearer ";
 
-const readBearerToken = (req: Request) => {
+export const readBearerToken = (req: Request) => {
   const header = req.get("authorization");
 
   if (!header || !header.startsWith(BEARER_PREFIX)) {

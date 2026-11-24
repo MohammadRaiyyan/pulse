@@ -7,6 +7,7 @@ import type {
 import { cacheKeys, invalidate } from "../../lib/cache.ts";
 import { notFound } from "../../lib/errors.ts";
 import { toLimitOffset, toPage } from "../../lib/pagination.ts";
+import { publishChange } from "../../lib/realtime.ts";
 import {
   removeIncidentsForSource,
   renameIncidentSource,
@@ -55,6 +56,7 @@ export const getMonitor = async (id: string) => {
 export const createMonitor = async (input: CreateMonitorInput) => {
   const monitor = await insertMonitor(input);
   await invalidate(cacheKeys.dashboardSummary);
+  publishChange({ type: "monitor.updated", id: monitor.id });
 
   return { ...monitor, alertChannelIds: input.alertChannelIds };
 };
@@ -77,6 +79,7 @@ export const updateMonitorById = async (
 
   const alertChannelIds =
     input.alertChannelIds ?? (await findChannelIdsForMonitor(id));
+  publishChange({ type: "monitor.updated", id });
 
   return { ...monitor, alertChannelIds };
 };
@@ -89,6 +92,7 @@ export const removeMonitor = async (id: string) => {
   }
 
   await removeIncidentsForSource(id);
+  publishChange({ type: "monitor.deleted", id });
 };
 
 export const getMonitorChecks = async (

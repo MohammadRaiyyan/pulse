@@ -16,7 +16,7 @@ const createHttpClient =
   ) =>
     executeRequest(method, path, options, onUnauthorized);
 
-const recoverSession = async () => {
+export const recoverSession = async () => {
   try {
     await refreshSession();
     return true;

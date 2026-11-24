@@ -11,6 +11,7 @@ import { daysFromNow } from "../../lib/dates.ts";
 import { AppError, conflict, notFound } from "../../lib/errors.ts";
 import { logger } from "../../lib/logger.ts";
 import { toLimitOffset, toPage } from "../../lib/pagination.ts";
+import { publishChange } from "../../lib/realtime.ts";
 import { hashPassword } from "../../security/passwords.ts";
 import { startSession } from "../auth/auth.service.ts";
 import { findUserByEmail } from "../users/user.repository.ts";
@@ -112,6 +113,7 @@ export const createInvitation = async (
     { email: created.email, inviteUrl: created.inviteUrl },
     "Invitation created",
   );
+  publishChange({ type: "invitation.updated", id: created.id });
 
   return created;
 };
@@ -123,6 +125,8 @@ export const revokeInvitation = async (id: string) => {
     const current = await getInvitation(id);
     throw conflict(`Cannot revoke an invitation that is ${current.status}`);
   }
+
+  publishChange({ type: "invitation.updated", id });
 };
 
 export const previewInvitation = async (token: string) => {
@@ -151,6 +155,8 @@ export const acceptInvitationWithToken = async (
   if (!user) {
     throw invalidInvitation();
   }
+
+  publishChange({ type: "member.updated", id: user.id });
 
   return startSession(user);
 };

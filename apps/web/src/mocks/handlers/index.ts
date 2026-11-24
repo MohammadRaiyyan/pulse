@@ -4,6 +4,7 @@ import { authHandlers } from "./auth";
 import { dashboardHandlers } from "./dashboard";
 import { incidentHandlers } from "./incidents";
 import { invitationHandlers } from "./invitations";
+import { liveEventHandlers } from "./live-events";
 import { memberHandlers } from "./members";
 import { monitorHandlers } from "./monitors";
 import { oauthHandlers } from "./oauth";
@@ -22,4 +23,5 @@ export const handlers = [
   ...incidentHandlers,
   ...memberHandlers,
   ...invitationHandlers,
+  ...liveEventHandlers,
 ];

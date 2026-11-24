@@ -10,6 +10,7 @@ import { formatDuration } from "../../lib/dates.ts";
 import { notFound } from "../../lib/errors.ts";
 import { logger } from "../../lib/logger.ts";
 import { toLimitOffset, toPage } from "../../lib/pagination.ts";
+import { publishChange } from "../../lib/realtime.ts";
 import type { WebhookRow } from "../../models/index.ts";
 import {
   openIncidentForSource,
@@ -93,6 +94,7 @@ export const createWebhook = async (input: CreateWebhookInput) => {
   );
 
   await invalidate(cacheKeys.dashboardSummary);
+  publishChange({ type: "webhook.updated", id: webhook.id });
 
   return withPublicFields(webhook, input.alertChannelIds);
 };
@@ -118,6 +120,7 @@ export const updateWebhookById = async (
     input.expectedIntervalSeconds !== undefined
       ? await clearSilenceIfNoLongerOverdue(id)
       : undefined;
+  publishChange({ type: "webhook.updated", id });
 
   if (!recovered) {
     return withPublicFields(webhook, alertChannelIds);
@@ -143,6 +146,7 @@ export const removeWebhook = async (id: string) => {
 
   await removeIncidentsForSource(id);
   await invalidate(cacheKeys.dashboardSummary);
+  publishChange({ type: "webhook.deleted", id });
 };
 
 export const getWebhookEvents = async (
@@ -176,6 +180,8 @@ export const receiveWebhookEvent = async (
       alertChannelIds: await findChannelIdsForWebhook(webhook.id),
     });
   }
+
+  publishChange({ type: "webhook.event", id: webhook.id });
 };
 
 export const detectSilentWebhooks = async () => {
@@ -191,6 +197,7 @@ export const detectSilentWebhooks = async () => {
 
   for (const webhook of silentWebhooks) {
     logger.info({ webhook: webhook.name }, "Webhook went silent");
+    publishChange({ type: "webhook.updated", id: webhook.id });
 
     await openIncidentForSource(
       {

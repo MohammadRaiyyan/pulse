@@ -20,6 +20,8 @@ const envSchema = z.object({
   API_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
   CHECK_DISPATCH_INTERVAL_MS: z.coerce.number().int().positive().default(15_000),
   SILENCE_CHECK_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
+  LIVE_HEARTBEAT_INTERVAL_MS: z.coerce.number().int().positive().default(25_000),
+  LIVE_MAX_CONNECTIONS_PER_USER: z.coerce.number().int().positive().default(5),
 });
 
 const result = envSchema.safeParse(process.env);
