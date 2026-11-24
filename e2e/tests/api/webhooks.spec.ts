@@ -8,14 +8,18 @@ test.describe("webhooks", () => {
 
     const webhook = await owner.post("/webhooks", { name: "Stripe Events!", expectedIntervalSeconds: null, alertChannelIds: [] });
     expect(webhook.status).toBe(201);
-    expect(webhook.body.ingestUrl).toMatch(new RegExp(`^${WEB_ORIGIN}/hooks/stripe-events-[0-9a-f]{6}$`));
+    expect(webhook.body.ingestUrl).toMatch(new RegExp(`^${WEB_ORIGIN}/hooks/stripe-events-[A-Za-z0-9_-]{22}$`));
     expect(webhook.body).toMatchObject({ status: "pending", eventCount: 0, lastReceivedAt: null });
 
     const payload = '{ "type": "invoice.paid",\n  "amount": 1200 }';
     const ingestPath = new URL(webhook.body.ingestUrl).pathname;
     const sent = await fetch(`${API_ORIGIN}${ingestPath}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json", "Stripe-Signature": "t=1,v1=abc" },
+      headers: {
+        "Content-Type": "application/json",
+        "Stripe-Signature": "t=1,v1=abc",
+        Authorization: "Bearer sk_live_secret",
+      },
       body: payload,
     });
     expect(sent.status).toBe(202);
@@ -29,6 +33,7 @@ test.describe("webhooks", () => {
     expect(stripeEvent.body).toBe(payload);
     expect(stripeEvent.contentType).toBe("application/json");
     expect(stripeEvent.headers["stripe-signature"]).toBe("t=1,v1=abc");
+    expect(stripeEvent.headers.authorization).toBe("[redacted]");
 
     const updated = await owner.get(`/webhooks/${webhook.body.id}`);
     expect(updated.body).toMatchObject({ status: "active", eventCount: 2 });

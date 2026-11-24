@@ -2,6 +2,7 @@ import {
   createWebhookSchema,
   paginationQuerySchema,
   updateWebhookSchema,
+  webhookEventListQuerySchema,
 } from "@pulse/contracts";
 import type { Request, Response } from "express";
 import { validate, validateId, validateQuery } from "../../lib/validate.ts";
@@ -38,6 +39,6 @@ export const remove = async (req: Request, res: Response) => {
 
 export const listEvents = async (req: Request, res: Response) => {
   const id = validateId(req.params.id, LABEL);
-  const query = validateQuery(paginationQuerySchema, req.query);
+  const query = validateQuery(webhookEventListQuerySchema, req.query);
   res.json(await webhookService.getWebhookEvents(id, query));
 };

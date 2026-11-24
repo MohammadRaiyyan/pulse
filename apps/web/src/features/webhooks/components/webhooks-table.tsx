@@ -38,7 +38,7 @@ const columns: DataTableColumn<Webhook>[] = [
   },
   {
     id: "events",
-    header: "Events",
+    header: "Events (all time)",
     cell: (webhook) => formatCount(webhook.eventCount),
   },
   {

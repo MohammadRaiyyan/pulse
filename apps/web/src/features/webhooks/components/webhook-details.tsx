@@ -19,7 +19,7 @@ const webhookDetails: readonly DetailDefinition<Webhook>[] = [
       formatDuration(expectedIntervalSeconds),
   },
   {
-    label: "Events received",
+    label: "Events received (all time)",
     value: ({ eventCount }) => formatCount(eventCount),
   },
   {

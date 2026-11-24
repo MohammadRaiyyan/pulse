@@ -20,6 +20,11 @@ const envSchema = z.object({
   API_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
   CHECK_DISPATCH_INTERVAL_MS: z.coerce.number().int().positive().default(15_000),
   SILENCE_CHECK_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
+  WEBHOOK_MAX_BODY_BYTES: z.coerce.number().int().positive().default(262_144),
+  WEBHOOK_INGEST_PER_SLUG_PER_MINUTE: z.coerce.number().int().positive().default(120),
+  WEBHOOK_INGEST_PER_IP_PER_MINUTE: z.coerce.number().int().positive().default(600),
+  WEBHOOK_EVENT_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
+  WEBHOOK_MAX_EVENTS_PER_ENDPOINT: z.coerce.number().int().positive().default(1_000),
 });
 
 const result = envSchema.safeParse(process.env);
