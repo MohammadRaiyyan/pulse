@@ -17,6 +17,7 @@ export const createWebhookSchema = z.object({
   name: nameSchema,
   expectedIntervalSeconds: boundedIntSchema(WEBHOOK_SILENCE_LIMITS).nullable(),
   alertChannelIds: z.array(idSchema),
+  serviceId: idSchema.nullable().optional(),
 });
 
 export type CreateWebhookInput = z.infer<typeof createWebhookSchema>;
@@ -28,6 +29,7 @@ export type UpdateWebhookInput = z.infer<typeof updateWebhookSchema>;
 export const webhookSchema = createWebhookSchema.extend({
   id: idSchema,
   ingestUrl: z.url(),
+  serviceId: idSchema.nullable(),
   status: webhookStatusSchema,
   eventCount: nonNegativeIntSchema,
   lastReceivedAt: timestampSchema.nullable(),

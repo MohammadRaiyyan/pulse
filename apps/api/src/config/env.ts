@@ -46,6 +46,7 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().default(""),
   GOOGLE_CLIENT_SECRET: z.string().default(""),
   API_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
+  PUBLIC_STATUS_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(60),
   CHECK_DISPATCH_INTERVAL_MS: z.coerce.number().int().positive().default(15_000),
   SILENCE_CHECK_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
   ALLOW_PRIVATE_NETWORK_TARGETS: z.stringbool().default(false),

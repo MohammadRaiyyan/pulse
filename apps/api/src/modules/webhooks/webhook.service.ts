@@ -6,7 +6,7 @@ import type {
   WebhookEventListQuery,
 } from "@pulse/contracts";
 import { env } from "../../config/env.ts";
-import { cacheKeys, invalidate } from "../../lib/cache.ts";
+import { cacheKeys, invalidate, statusCacheKeys } from "../../lib/cache.ts";
 import { daysAgo, formatDuration } from "../../lib/dates.ts";
 import { notFound } from "../../lib/errors.ts";
 import { logger } from "../../lib/logger.ts";
@@ -98,11 +98,12 @@ export const createWebhook = async (input: CreateWebhookInput) => {
       name: input.name,
       slug: toSlug(input.name),
       expectedIntervalSeconds: input.expectedIntervalSeconds,
+      serviceId: input.serviceId ?? null,
     },
     input.alertChannelIds,
   );
 
-  await invalidate(cacheKeys.dashboardSummary);
+  await invalidate(...statusCacheKeys);
   publishChange({ type: "webhook.updated", id: webhook.id });
 
   return withPublicFields(webhook, input.alertChannelIds);
@@ -129,6 +130,7 @@ export const updateWebhookById = async (
     input.expectedIntervalSeconds !== undefined
       ? await clearSilenceIfNoLongerOverdue(id)
       : undefined;
+  await invalidate(cacheKeys.publicStatus);
   publishChange({ type: "webhook.updated", id });
 
   if (!recovered) {
@@ -141,7 +143,7 @@ export const updateWebhookById = async (
     name: webhook.name,
     alertChannelIds,
   });
-  await invalidate(cacheKeys.dashboardSummary);
+  await invalidate(...statusCacheKeys);
 
   return withPublicFields({ ...webhook, status: recovered.status }, alertChannelIds);
 };
@@ -154,7 +156,7 @@ export const removeWebhook = async (id: string) => {
   }
 
   await closeIncidentsForSource(id);
-  await invalidate(cacheKeys.dashboardSummary);
+  await invalidate(...statusCacheKeys);
   publishChange({ type: "webhook.deleted", id });
 };
 
@@ -194,7 +196,7 @@ export const receiveWebhookEvent = async (
   }
 
   if (webhook.status !== "active") {
-    await invalidate(cacheKeys.dashboardSummary);
+    await invalidate(...statusCacheKeys);
   }
 
   if (webhook.status === "silent") {
@@ -235,7 +237,7 @@ export const detectSilentWebhooks = async () => {
     );
   }
 
-  await invalidate(cacheKeys.dashboardSummary);
+  await invalidate(...statusCacheKeys);
 };
 
 export const pruneWebhookEvents = async () => {

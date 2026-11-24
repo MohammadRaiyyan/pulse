@@ -1,5 +1,5 @@
 import { checksQueue } from "../../jobs/queues.ts";
-import { cacheKeys, invalidate } from "../../lib/cache.ts";
+import { cacheKeys, invalidate, statusCacheKeys } from "../../lib/cache.ts";
 import { logger } from "../../lib/logger.ts";
 import { publishChange } from "../../lib/realtime.ts";
 import type { MonitorRow } from "../../models/index.ts";
@@ -58,7 +58,11 @@ export const checkMonitor = async (monitorId: string) => {
     return;
   }
 
-  await invalidate(cacheKeys.dashboardSummary);
+  await invalidate(
+    ...(checked.status === monitor.status
+      ? [cacheKeys.dashboardSummary]
+      : statusCacheKeys),
+  );
 
   logger.debug(
     {

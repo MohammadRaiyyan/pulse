@@ -21,6 +21,8 @@ export const changeEventTypeSchema = z.enum([
   "member.updated",
   "member.deleted",
   "invitation.updated",
+  "service.updated",
+  "service.deleted",
 ]);
 
 export type ChangeEventType = z.infer<typeof changeEventTypeSchema>;

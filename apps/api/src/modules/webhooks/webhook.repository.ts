@@ -24,11 +24,13 @@ type WebhookValues = {
   name: string;
   slug: string;
   expectedIntervalSeconds: number | null;
+  serviceId: string | null;
 };
 
 type WebhookChanges = {
   name?: string;
   expectedIntervalSeconds?: number | null;
+  serviceId?: string | null;
   alertChannelIds?: string[];
 };
 
@@ -118,8 +120,9 @@ export const insertWebhook = (
 export const updateWebhook = (id: string, changes: WebhookChanges) =>
   db.transaction(async (tx) => {
     const { alertChannelIds, ...values } = changes;
-    const hasValues =
-      values.name !== undefined || values.expectedIntervalSeconds !== undefined;
+    const hasValues = Object.values(values).some(
+      (value) => value !== undefined,
+    );
 
     const [webhook] = hasValues
       ? await tx

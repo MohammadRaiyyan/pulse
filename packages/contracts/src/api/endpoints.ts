@@ -39,6 +39,17 @@ import {
   monitorSchema,
   updateMonitorSchema,
 } from "../monitors/index.ts";
+import {
+  createServiceSchema,
+  serviceOverviewSchema,
+  serviceSchema,
+  updateServiceSchema,
+} from "../services/index.ts";
+import {
+  publicStatusSchema,
+  statusPageSettingsSchema,
+  updateStatusPageSettingsSchema,
+} from "../status-page/index.ts";
 import { updateProfileSchema, userSchema } from "../users/index.ts";
 import {
   createWebhookSchema,
@@ -65,6 +76,14 @@ export const resources = {
     listQuery: paginationQuerySchema,
     create: createWebhookSchema,
     update: updateWebhookSchema,
+  }),
+  services: defineResource({
+    path: "/services",
+    permissions: { read: "monitor:read", write: "monitor:write" },
+    item: serviceSchema,
+    listQuery: paginationQuerySchema,
+    create: createServiceSchema,
+    update: updateServiceSchema,
   }),
   alertChannels: defineResource({
     path: "/alert-channels",
@@ -244,6 +263,31 @@ export const endpoints = {
     path: "/incidents/:id/:transition",
     access: "incident:manage",
     response: incidentSchema,
+  }),
+  getServiceOverview: defineEndpoint({
+    method: "GET",
+    path: "/services/:id/overview",
+    access: "monitor:read",
+    response: serviceOverviewSchema,
+  }),
+  getStatusPageSettings: defineEndpoint({
+    method: "GET",
+    path: "/status-page",
+    access: "status-page:manage",
+    response: statusPageSettingsSchema,
+  }),
+  updateStatusPageSettings: defineEndpoint({
+    method: "PATCH",
+    path: "/status-page",
+    access: "status-page:manage",
+    body: updateStatusPageSettingsSchema,
+    response: statusPageSettingsSchema,
+  }),
+  getPublicStatus: defineEndpoint({
+    method: "GET",
+    path: "/public/status",
+    access: "public",
+    response: publicStatusSchema,
   }),
   previewInvitation: defineEndpoint({
     method: "GET",

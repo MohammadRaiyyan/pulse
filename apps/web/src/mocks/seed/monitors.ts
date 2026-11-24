@@ -134,6 +134,7 @@ export const seedMonitors = (channelIds: readonly string[]) =>
     const monitor: Monitor = {
       ...scenario.input,
       id,
+      serviceId: null,
       status: scenario.status,
       isPaused: scenario.isPaused ?? false,
       failureThreshold:

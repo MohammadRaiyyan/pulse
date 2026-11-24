@@ -5,7 +5,7 @@ import type {
   UpdateMonitorInput,
 } from "@pulse/contracts";
 import { env } from "../../config/env.ts";
-import { cacheKeys, invalidate } from "../../lib/cache.ts";
+import { invalidate, statusCacheKeys } from "../../lib/cache.ts";
 import { conflict, notFound } from "../../lib/errors.ts";
 import { toLimitOffset, toPage } from "../../lib/pagination.ts";
 import { publishChange } from "../../lib/realtime.ts";
@@ -67,7 +67,7 @@ export const createMonitor = async (input: CreateMonitorInput) => {
     );
   }
 
-  await invalidate(cacheKeys.dashboardSummary);
+  await invalidate(...statusCacheKeys);
   publishChange({ type: "monitor.updated", id: monitor.id });
 
   return { ...monitor, alertChannelIds: input.alertChannelIds };
@@ -98,7 +98,7 @@ export const updateMonitorById = async (
     );
   }
 
-  await invalidate(cacheKeys.dashboardSummary);
+  await invalidate(...statusCacheKeys);
 
   return { ...monitor, alertChannelIds };
 };
