@@ -1,6 +1,7 @@
 import { checksQueue } from "../../jobs/queues.ts";
 import { cacheKeys, invalidate } from "../../lib/cache.ts";
 import { logger } from "../../lib/logger.ts";
+import { publishChange } from "../../lib/realtime.ts";
 import {
   openIncidentForSource,
   resolveIncidentForSource,
@@ -44,6 +45,8 @@ export const checkMonitor = async (monitorId: string) => {
       measurement.errorMessage ?? `Monitor is ${measurement.outcome}`,
     );
   }
+
+  publishChange({ type: "monitor.checked", id: monitor.id });
 
   return measurement.outcome;
 };

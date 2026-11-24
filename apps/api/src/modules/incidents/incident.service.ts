@@ -8,6 +8,7 @@ import { cacheKeys, invalidate } from "../../lib/cache.ts";
 import { conflict, notFound } from "../../lib/errors.ts";
 import { logger } from "../../lib/logger.ts";
 import { toLimitOffset, toPage } from "../../lib/pagination.ts";
+import { publishChange } from "../../lib/realtime.ts";
 import {
   applyTransition,
   deleteIncidentsForSource,
@@ -67,6 +68,7 @@ export const transitionIncident = async (
   }
 
   await invalidate(cacheKeys.dashboardSummary);
+  publishChange({ type: "incident.updated", id: updated.id });
 
   return updated;
 };
@@ -92,6 +94,7 @@ export const openIncidentForSource = async (
   );
   await invalidate(cacheKeys.dashboardSummary);
   await notifyChannels(source.alertChannelIds, "incident.opened", incident.id);
+  publishChange({ type: "incident.updated", id: incident.id });
 };
 
 export const resolveIncidentForSource = async (source: IncidentSource) => {
@@ -111,6 +114,7 @@ export const resolveIncidentForSource = async (source: IncidentSource) => {
     "incident.resolved",
     incident.id,
   );
+  publishChange({ type: "incident.updated", id: incident.id });
 };
 
 export const renameIncidentSource = (sourceId: string, name: string) =>

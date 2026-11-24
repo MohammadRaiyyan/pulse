@@ -6,6 +6,7 @@ import type {
 import { enqueueAlert } from "../../jobs/queues.ts";
 import { conflict, notFound } from "../../lib/errors.ts";
 import { toLimitOffset, toPage } from "../../lib/pagination.ts";
+import { publishChange } from "../../lib/realtime.ts";
 import {
   deleteAlertChannel,
   findAlertChannel,
@@ -32,13 +33,17 @@ export const getAlertChannel = async (id: string) => {
   return channel;
 };
 
-export const createAlertChannel = (input: CreateAlertChannelInput) =>
-  insertAlertChannel({
+export const createAlertChannel = async (input: CreateAlertChannelInput) => {
+  const channel = await insertAlertChannel({
     name: input.name,
     isEnabled: input.isEnabled,
     type: input.destination.type,
     target: input.destination.target,
   });
+  publishChange({ type: "alertChannel.updated", id: channel.id });
+
+  return channel;
+};
 
 export const updateAlertChannelById = async (
   id: string,
@@ -55,6 +60,8 @@ export const updateAlertChannelById = async (
     throw notFound(LABEL);
   }
 
+  publishChange({ type: "alertChannel.updated", id });
+
   return channel;
 };
 
@@ -64,6 +71,8 @@ export const removeAlertChannel = async (id: string) => {
   if (!channel) {
     throw notFound(LABEL);
   }
+
+  publishChange({ type: "alertChannel.deleted", id });
 };
 
 export const sendTestAlert = async (id: string) => {

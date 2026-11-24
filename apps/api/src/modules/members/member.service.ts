@@ -1,6 +1,7 @@
 import type { PaginationQuery, UpdateMemberInput } from "@pulse/contracts";
 import { forbidden, notFound } from "../../lib/errors.ts";
 import { toLimitOffset, toPage } from "../../lib/pagination.ts";
+import { publishChange } from "../../lib/realtime.ts";
 import {
   deleteUserUnlessOwner,
   findUserById,
@@ -54,6 +55,7 @@ export const changeMemberRole = async (
   }
 
   await forgetCachedUser(id);
+  publishChange({ type: "member.updated", id });
 
   return member;
 };
@@ -68,4 +70,5 @@ export const removeMember = async (actor: AuthUser, id: string) => {
   }
 
   await forgetCachedUser(id);
+  publishChange({ type: "member.deleted", id });
 };

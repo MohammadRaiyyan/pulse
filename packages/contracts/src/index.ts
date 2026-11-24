@@ -8,5 +8,6 @@ export * from "./invitations/index.ts";
 export * from "./members/index.ts";
 export * from "./monitors/index.ts";
 export * from "./rbac/index.ts";
+export * from "./realtime/index.ts";
 export * from "./users/index.ts";
 export * from "./webhooks/index.ts";

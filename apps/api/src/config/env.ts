@@ -56,6 +56,8 @@ const envSchema = z.object({
   WEBHOOK_INGEST_PER_IP_PER_MINUTE: z.coerce.number().int().positive().default(600),
   WEBHOOK_EVENT_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
   WEBHOOK_MAX_EVENTS_PER_ENDPOINT: z.coerce.number().int().positive().default(1_000),
+  LIVE_HEARTBEAT_INTERVAL_MS: z.coerce.number().int().positive().default(25_000),
+  LIVE_MAX_CONNECTIONS_PER_USER: z.coerce.number().int().positive().default(5),
 });
 
 type Env = z.infer<typeof envSchema>;
