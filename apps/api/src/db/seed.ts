@@ -383,7 +383,7 @@ const seedServices = async () => {
     .insert(services)
     .values([
       {
-        name: "Public API",
+        name: "Customer API",
         description: "The REST API and payment processing our customers use.",
         isPublic: true,
         position: 0,

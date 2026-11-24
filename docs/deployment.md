@@ -167,7 +167,7 @@ before then.
 
    With the deploy workflow you only need the `deploy/` folder; the workflow copies it on every run.
 
-4. **Fill in `.env`.** At minimum: `DOMAIN`, `JWT_SECRET`, `INVITE_SECRET`, `REDIS_PASSWORD`, the database settings,
+4. **Fill in `.env`.** At minimum: `DOMAIN`, `JWT_SECRET`, `INVITE_SECRET`, `ENCRYPTION_KEY`, `REDIS_PASSWORD`, the database settings,
    `MAIL_FROM` and the `SMTP_*` values. Generate secrets with:
 
    ```bash

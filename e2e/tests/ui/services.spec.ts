@@ -23,7 +23,7 @@ test.describe("services and status page", () => {
 
     const page = await pageAs("owner");
     await goTo(page, "Services");
-    await expect(tableRow(page, "Public API")).toBeVisible();
+    await expect(tableRow(page, "Customer API")).toBeVisible();
     await page.getByRole("button", { name: "New service" }).first().click();
 
     const dialog = page.getByRole("dialog");
@@ -69,9 +69,9 @@ test.describe("services and status page", () => {
     await publicPage.goto(new URL("/status", page.url()).href);
     await expect(publicPage.getByRole("heading", { name: title })).toBeVisible();
     await expect(publicPage.getByText("Live health of the Acme shop.")).toBeVisible();
-    await expect(
-      publicPage.getByText(/All systems operational|Degraded performance|Partial outage|Major outage/),
-    ).toBeVisible();
+    await expect(publicPage.locator('div[aria-live="polite"]')).toHaveText(
+      /All systems operational|Degraded performance|Partial outage|Major outage/,
+    );
     await expect(publicPage.getByRole("heading", { name: serviceName })).toBeVisible();
     await expect(publicPage.getByText("Shop front and checkout")).toBeVisible();
     await expect(publicPage.getByRole("heading", { name: "Internal", exact: true })).toHaveCount(0);

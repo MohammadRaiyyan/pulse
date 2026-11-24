@@ -100,7 +100,7 @@ test.describe("public status page", () => {
     expect(body.title).toBe("Pulse status");
     expect(["operational", "degraded", "partial_outage", "major_outage"]).toContain(body.overallStatus);
     const serviceNames = body.services.map((service: { name: string }) => service.name);
-    expect(serviceNames).toEqual(expect.arrayContaining(["Public API", "Integrations"]));
+    expect(serviceNames).toEqual(expect.arrayContaining(["Customer API", "Integrations"]));
     expect(serviceNames).not.toContain("Internal");
 
     for (const service of body.services) {
