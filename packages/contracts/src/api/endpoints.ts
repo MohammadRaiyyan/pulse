@@ -313,6 +313,7 @@ export const endpoints = {
     path: "/public/status",
     access: "public",
     response: publicStatusSchema,
+  }),
   transferOwnership: defineEndpoint({
     method: "POST",
     path: "/members/:id/transfer-ownership",

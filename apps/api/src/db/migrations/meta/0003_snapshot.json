@@ -1,5 +1,5 @@
 {
-  "id": "811bb485-0319-453c-a95e-1133501c1ff1",
+  "id": "de152bb8-c59d-4ad5-b574-8351bc865e7f",
   "prevId": "46171f8f-7214-4fda-baf3-fb0cf8dc200b",
   "version": "7",
   "dialect": "postgresql",
@@ -586,6 +586,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "region": {
+          "name": "region",
+          "type": "opsgenie_region",
+          "primaryKey": false,
+          "notNull": false
+        },
         "signing_secret": {
           "name": "signing_secret",
           "type": "text",
@@ -606,7 +612,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "alert_channels_region_only_for_opsgenie": {
+          "name": "alert_channels_region_only_for_opsgenie",
+          "value": "(\"alert_channels\".\"type\"::text = 'opsgenie') = (\"alert_channels\".\"region\" is not null)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.services": {
@@ -884,7 +895,23 @@
           "default": 0
         }
       },
-      "indexes": {},
+      "indexes": {
+        "monitor_daily_stats_day_idx": {
+          "name": "monitor_daily_stats_day_idx",
+          "columns": [
+            {
+              "expression": "day",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "monitor_daily_stats_monitor_id_monitors_id_fk": {
           "name": "monitor_daily_stats_monitor_id_monitors_id_fk",
@@ -1004,6 +1031,25 @@
         "uptime_percent": {
           "name": "uptime_percent",
           "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "request_headers": {
+          "name": "request_headers",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "request_body": {
+          "name": "request_body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "request_content_type": {
+          "name": "request_content_type",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -1707,6 +1753,10 @@
       "values": [
         "email",
         "slack",
+        "teams",
+        "discord",
+        "pagerduty",
+        "opsgenie",
         "webhook"
       ]
     },
@@ -1809,6 +1859,14 @@
       "values": [
         "github",
         "google"
+      ]
+    },
+    "public.opsgenie_region": {
+      "name": "opsgenie_region",
+      "schema": "public",
+      "values": [
+        "us",
+        "eu"
       ]
     },
     "public.role": {

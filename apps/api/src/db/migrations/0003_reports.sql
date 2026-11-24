@@ -1,1 +1,0 @@
-CREATE INDEX "monitor_daily_stats_day_idx" ON "monitor_daily_stats" USING btree ("day");
