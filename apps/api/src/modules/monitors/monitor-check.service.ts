@@ -2,17 +2,47 @@ import { checksQueue } from "../../jobs/queues.ts";
 import { cacheKeys, invalidate } from "../../lib/cache.ts";
 import { logger } from "../../lib/logger.ts";
 import { publishChange } from "../../lib/realtime.ts";
+import type { MonitorRow } from "../../models/index.ts";
 import {
   openIncidentForSource,
   resolveIncidentForSource,
 } from "../incidents/incident.service.ts";
 import { runHttpCheck } from "./http-check.ts";
 import {
+  type CheckMeasurement,
   findChannelIdsForMonitor,
   findDueMonitors,
   findMonitor,
   saveCheckResult,
 } from "./monitor.repository.ts";
+
+type CheckedMonitor = Pick<MonitorRow, "id" | "name" | "consecutiveFailures" | "failureThreshold">;
+
+const updateIncidentForCheck = async (checked: CheckedMonitor, measurement: CheckMeasurement) => {
+  const isConfirmedFailure = checked.consecutiveFailures >= checked.failureThreshold;
+
+  if (measurement.outcome !== "up" && !isConfirmedFailure) {
+    return;
+  }
+
+  const source = {
+    type: "monitor" as const,
+    id: checked.id,
+    name: checked.name,
+    alertChannelIds: await findChannelIdsForMonitor(checked.id),
+  };
+
+  if (measurement.outcome === "up") {
+    await resolveIncidentForSource(source);
+    return;
+  }
+
+  await openIncidentForSource(
+    source,
+    measurement.errorMessage ?? `Monitor is ${measurement.outcome}`,
+    measurement.outcome === "down" ? "critical" : "warning",
+  );
+};
 
 export const checkMonitor = async (monitorId: string) => {
   const monitor = await findMonitor(monitorId);
@@ -22,30 +52,24 @@ export const checkMonitor = async (monitorId: string) => {
   }
 
   const measurement = await runHttpCheck(monitor);
-  await saveCheckResult(monitor.id, measurement);
+  const checked = await saveCheckResult(monitor.id, measurement);
+
+  if (!checked) {
+    return;
+  }
+
   await invalidate(cacheKeys.dashboardSummary);
 
   logger.debug(
-    { monitor: monitor.name, outcome: measurement.outcome },
+    {
+      monitor: monitor.name,
+      outcome: measurement.outcome,
+      consecutiveFailures: checked.consecutiveFailures,
+    },
     "Monitor checked",
   );
 
-  const source = {
-    type: "monitor" as const,
-    id: monitor.id,
-    name: monitor.name,
-    alertChannelIds: await findChannelIdsForMonitor(monitor.id),
-  };
-
-  if (measurement.outcome === "up") {
-    await resolveIncidentForSource(source);
-  } else {
-    await openIncidentForSource(
-      source,
-      measurement.errorMessage ?? `Monitor is ${measurement.outcome}`,
-    );
-  }
-
+  await updateIncidentForCheck(checked, measurement);
   publishChange({ type: "monitor.checked", id: monitor.id });
 
   return measurement.outcome;

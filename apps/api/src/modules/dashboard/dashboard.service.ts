@@ -8,7 +8,7 @@ import {
 import { cacheKeys, cached } from "../../lib/cache.ts";
 import {
   countMonitorsByStatus,
-  countOpenIncidents,
+  countActiveIncidents,
   countWebhooksByStatus,
   getActiveMonitorStats,
 } from "./dashboard.repository.ts";
@@ -36,11 +36,11 @@ const sum = (rows: { total: number }[]) =>
   rows.reduce((total, row) => total + row.total, 0);
 
 const buildSummary = async (): Promise<DashboardSummary> => {
-  const [monitorRows, webhookRows, stats, openIncidents] = await Promise.all([
+  const [monitorRows, webhookRows, stats, incidentCounts] = await Promise.all([
     countMonitorsByStatus(),
     countWebhooksByStatus(),
     getActiveMonitorStats(),
-    countOpenIncidents(),
+    countActiveIncidents(),
   ]);
 
   return {
@@ -59,7 +59,9 @@ const buildSummary = async (): Promise<DashboardSummary> => {
         webhookRows,
       ),
     },
-    openIncidents,
+    openIncidents: incidentCounts.open,
+    activeIncidents: incidentCounts.active,
+    criticalIncidents: incidentCounts.critical,
     averageResponseTimeMs: stats?.averageResponseTimeMs ?? null,
     uptimePercent: stats?.uptimePercent ?? null,
   };

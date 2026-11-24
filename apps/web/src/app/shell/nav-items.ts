@@ -10,7 +10,7 @@ import {
   WebhookIcon,
 } from "lucide-react";
 import type { ComponentType } from "react";
-import { OpenIncidentsBadge } from "@/features/dashboard/components/open-incidents-badge";
+import { ActiveIncidentsBadge } from "@/features/dashboard/components/active-incidents-badge";
 
 export type NavItem = {
   title: string;
@@ -44,7 +44,7 @@ export const navItems: readonly NavItem[] = [
     to: "/incidents",
     icon: SirenIcon,
     permission: "incident:read",
-    badge: OpenIncidentsBadge,
+    badge: ActiveIncidentsBadge,
   },
   {
     title: "Alert channels",

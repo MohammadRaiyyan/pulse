@@ -1,4 +1,9 @@
+import {
+  type IncidentResolutionReason,
+  isActiveIncidentStatus,
+} from "@pulse/contracts";
 import { db } from "../db";
+import { now } from "./time";
 import { errorResponse } from "./responses";
 
 export const assertChannelsExist = (channelIds: readonly string[] = []) => {
@@ -20,10 +25,34 @@ export const renameIncidentSource = (sourceId: string, name: string) => {
   });
 };
 
-export const removeIncidentsForSource = (sourceId: string) => {
+export const resolveActiveIncident = (
+  sourceId: string,
+  reason: IncidentResolutionReason,
+) => {
+  db.incidents.forEach((incident) => {
+    if (
+      incident.source.id === sourceId &&
+      isActiveIncidentStatus(incident.status)
+    ) {
+      db.incidents.set(incident.id, {
+        ...incident,
+        status: "resolved",
+        resolvedAt: now(),
+        resolvedBy: null,
+        resolutionReason: reason,
+      });
+    }
+  });
+};
+
+export const closeIncidentsForSource = (sourceId: string) => {
+  resolveActiveIncident(sourceId, "source_deleted");
   db.incidents.forEach((incident) => {
     if (incident.source.id === sourceId) {
-      db.incidents.delete(incident.id);
+      db.incidents.set(incident.id, {
+        ...incident,
+        source: { ...incident.source, isDeleted: true },
+      });
     }
   });
 };
@@ -57,6 +86,6 @@ export const channelLinkedSourceHooks = <TItem extends ChannelLinkedSource>(
   onUpdate: (item: TItem) => renameIncidentSource(item.id, item.name),
   onDelete: (item: TItem) => {
     onDeleted(item);
-    removeIncidentsForSource(item.id);
+    closeIncidentsForSource(item.id);
   },
 });

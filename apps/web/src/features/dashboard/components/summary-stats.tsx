@@ -30,12 +30,18 @@ const summaryStats: readonly StatDefinition<DashboardSummary>[] = [
       `${formatCount(monitors.byStatus.down)} down · ${formatCount(monitors.byStatus.degraded)} degraded · ${formatCount(monitors.paused)} paused`,
   },
   {
-    label: "Open incidents",
+    label: "Active incidents",
     icon: SirenIcon,
-    tone: ({ openIncidents }) => (openIncidents > 0 ? "danger" : "neutral"),
-    value: ({ openIncidents }) => formatCount(openIncidents),
-    hint: ({ webhooks }) =>
-      `${formatCount(webhooks.byStatus.silent)} of ${formatCount(webhooks.total)} webhooks silent`,
+    tone: ({ activeIncidents, criticalIncidents }) => {
+      if (criticalIncidents > 0) {
+        return "danger";
+      }
+
+      return activeIncidents > 0 ? "warning" : "neutral";
+    },
+    value: ({ activeIncidents }) => formatCount(activeIncidents),
+    hint: ({ openIncidents, webhooks }) =>
+      `${formatCount(openIncidents)} unacknowledged · ${formatCount(webhooks.byStatus.silent)} of ${formatCount(webhooks.total)} webhooks silent`,
   },
   {
     label: "Avg response time",

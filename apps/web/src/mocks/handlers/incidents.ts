@@ -3,10 +3,11 @@ import {
   canTransitionIncident,
   endpoints,
   incidentTransitionSchema,
+  matchesIncidentStatusFilter,
   resources,
 } from "@pulse/contracts";
 import { db } from "../db";
-import { findById, matchesStatus } from "../lib/collection";
+import { findById } from "../lib/collection";
 import { crudHandlers } from "../lib/crud";
 import { parseParam } from "../lib/request";
 import { errorResponse } from "../lib/responses";
@@ -17,7 +18,7 @@ const LABEL = "Incident";
 
 const transitionIncident = route(
   endpoints.transitionIncident,
-  ({ params, respond }) => {
+  ({ params, respond, user }) => {
     const incident = findById(db.incidents, params, LABEL);
     const transition = parseParam(
       params,
@@ -32,7 +33,10 @@ const transitionIncident = route(
       );
     }
 
-    const updated = applyIncidentTransition(incident, transition, now());
+    const updated = applyIncidentTransition(incident, transition, now(), {
+      id: user.id,
+      name: user.name,
+    });
     db.incidents.set(updated.id, updated);
 
     return respond(updated);
@@ -44,7 +48,8 @@ export const incidentHandlers = [
     label: LABEL,
     store: db.incidents,
     sortKey: (incident) => incident.startedAt,
-    matches: matchesStatus,
+    matches: (incident, query) =>
+      matchesIncidentStatusFilter(incident.status, query.status),
   }),
   transitionIncident,
 ];

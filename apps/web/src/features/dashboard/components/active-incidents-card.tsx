@@ -10,23 +10,23 @@ import {
   IncidentsTable,
   IncidentsTableSkeleton,
 } from "@/features/incidents/components/incidents-table";
-import { openIncidentsQuery } from "../api/dashboard-query";
+import { activeIncidentsQuery } from "../api/dashboard-query";
 import { RECENT_INCIDENTS_LIMIT } from "../dashboard-constants";
 
-const OpenIncidentsTable = () => {
-  const { data } = useSuspenseQuery(openIncidentsQuery);
+const ActiveIncidentsTable = () => {
+  const { data } = useSuspenseQuery(activeIncidentsQuery);
 
-  return <IncidentsTable incidents={data.items} />;
+  return <IncidentsTable incidents={data.items} view="active" />;
 };
 
-export const OpenIncidentsCard = () => (
+export const ActiveIncidentsCard = () => (
   <ContentSection
-    title="Open incidents"
+    title="Active incidents"
     description="Issues that still need attention"
   >
     <SectionActions>
       <Button variant="ghost-accent" asChild>
-        <Link to="/incidents" search={{ status: "open" }}>
+        <Link to="/incidents" search={{ status: "active" }}>
           View all
         </Link>
       </Button>
@@ -34,7 +34,7 @@ export const OpenIncidentsCard = () => (
     <Suspense
       fallback={<IncidentsTableSkeleton rows={RECENT_INCIDENTS_LIMIT} />}
     >
-      <OpenIncidentsTable />
+      <ActiveIncidentsTable />
     </Suspense>
   </ContentSection>
 );

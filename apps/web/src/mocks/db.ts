@@ -62,7 +62,7 @@ const createDb = (): MockDb => {
     checks: new Map(monitorSeeds.map((seed) => [seed.monitor.id, seed.checks])),
     webhooks: byId(webhooks),
     webhookEvents: events,
-    incidents: byId(seedIncidents(monitors, webhooks)),
+    incidents: byId(seedIncidents(users, monitors, webhooks)),
     invitations: byId(seedInvitations(owner)),
   };
 };

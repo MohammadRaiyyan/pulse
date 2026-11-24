@@ -130,7 +130,11 @@ export const updateMonitor = (id: string, input: UpdateMonitorInput) =>
     const { alertChannelIds, ...values } = input;
     const [monitor] = await tx
       .update(monitors)
-      .set({ ...values, updatedAt: new Date() })
+      .set({
+        ...values,
+        ...(values.isPaused ? { consecutiveFailures: 0 } : {}),
+        updatedAt: new Date(),
+      })
       .where(eq(monitors.id, id))
       .returning();
 
@@ -199,6 +203,24 @@ export const saveCheckResult = (
   db.transaction(async (tx) => {
     const checkedAt = new Date();
 
+    const [checked] = await tx
+      .update(monitors)
+      .set({
+        status: measurement.outcome,
+        lastCheckedAt: checkedAt,
+        lastResponseTimeMs: measurement.responseTimeMs,
+        consecutiveFailures:
+          measurement.outcome === "up"
+            ? 0
+            : sql`${monitors.consecutiveFailures} + 1`,
+      })
+      .where(and(eq(monitors.id, monitorId), eq(monitors.isPaused, false)))
+      .returning({ id: monitors.id });
+
+    if (!checked) {
+      return undefined;
+    }
+
     await tx
       .insert(checkResults)
       .values({ monitorId, checkedAt, ...measurement });
@@ -223,12 +245,7 @@ export const saveCheckResult = (
 
     const [monitor] = await tx
       .update(monitors)
-      .set({
-        status: measurement.outcome,
-        lastCheckedAt: checkedAt,
-        lastResponseTimeMs: measurement.responseTimeMs,
-        uptimePercent: stats?.uptimePercent ?? null,
-      })
+      .set({ uptimePercent: stats?.uptimePercent ?? null })
       .where(eq(monitors.id, monitorId))
       .returning();
 

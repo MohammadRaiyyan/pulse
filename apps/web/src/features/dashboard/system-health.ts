@@ -8,13 +8,14 @@ type SystemHealth = {
 };
 
 export const getSystemHealth = ({
-  openIncidents,
+  activeIncidents,
+  criticalIncidents,
   monitors,
 }: DashboardSummary): SystemHealth => {
-  if (openIncidents > 0) {
+  if (activeIncidents > 0) {
     return {
-      tone: "danger",
-      title: pluralize(openIncidents, "open incident"),
+      tone: criticalIncidents > 0 ? "danger" : "warning",
+      title: pluralize(activeIncidents, "active incident"),
     };
   }
 

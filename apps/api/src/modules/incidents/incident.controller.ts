@@ -3,6 +3,7 @@ import {
   incidentTransitionSchema,
 } from "@pulse/contracts";
 import type { Request, Response } from "express";
+import { currentUser } from "../../middleware/authenticate.ts";
 import {
   validateId,
   validateParam,
@@ -29,5 +30,11 @@ export const transition = async (req: Request, res: Response) => {
     req.params.transition,
     "transition",
   );
-  res.json(await incidentService.transitionIncident(id, transitionName));
+  const { id: userId, name } = currentUser(req);
+  res.json(
+    await incidentService.transitionIncident(id, transitionName, {
+      id: userId,
+      name,
+    }),
+  );
 };

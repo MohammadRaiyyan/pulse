@@ -14,8 +14,8 @@ import { toLimitOffset, toPage } from "../../lib/pagination.ts";
 import { publishChange } from "../../lib/realtime.ts";
 import type { WebhookRow } from "../../models/index.ts";
 import {
+  closeIncidentsForSource,
   openIncidentForSource,
-  removeIncidentsForSource,
   renameIncidentSource,
   resolveIncidentForSource,
 } from "../incidents/incident.service.ts";
@@ -153,7 +153,7 @@ export const removeWebhook = async (id: string) => {
     throw notFound(LABEL);
   }
 
-  await removeIncidentsForSource(id);
+  await closeIncidentsForSource(id);
   await invalidate(cacheKeys.dashboardSummary);
   publishChange({ type: "webhook.deleted", id });
 };

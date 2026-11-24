@@ -10,8 +10,9 @@ import { conflict, notFound } from "../../lib/errors.ts";
 import { toLimitOffset, toPage } from "../../lib/pagination.ts";
 import { publishChange } from "../../lib/realtime.ts";
 import {
-  removeIncidentsForSource,
+  closeIncidentsForSource,
   renameIncidentSource,
+  resolveIncidentForSource,
 } from "../incidents/incident.service.ts";
 import {
   countMonitors,
@@ -83,11 +84,18 @@ export const updateMonitorById = async (
     await renameIncidentSource(id, input.name);
   }
 
-  await invalidate(cacheKeys.dashboardSummary);
-
   const alertChannelIds =
     input.alertChannelIds ?? (await findChannelIdsForMonitor(id));
   publishChange({ type: "monitor.updated", id });
+
+  if (input.isPaused) {
+    await resolveIncidentForSource(
+      { type: "monitor", id, name: monitor.name, alertChannelIds },
+      "monitor_paused",
+    );
+  }
+
+  await invalidate(cacheKeys.dashboardSummary);
 
   return { ...monitor, alertChannelIds };
 };
@@ -99,7 +107,7 @@ export const removeMonitor = async (id: string) => {
     throw notFound(LABEL);
   }
 
-  await removeIncidentsForSource(id);
+  await closeIncidentsForSource(id);
   publishChange({ type: "monitor.deleted", id });
 };
 

@@ -4,11 +4,13 @@ import { uniqueSuffix } from "../../support/api-client.ts";
 test.describe("dashboard", () => {
   test("summary agrees with the underlying lists and updates immediately", async ({ ownerApi: owner }) => {
 
-    const [summary, monitors, webhooks, openIncidents] = await Promise.all([
+    const [summary, monitors, webhooks, openIncidents, activeIncidents, acknowledgedIncidents] = await Promise.all([
       owner.get("/dashboard/summary"),
       owner.get("/monitors?pageSize=100"),
       owner.get("/webhooks?pageSize=100"),
       owner.get("/incidents?status=open&pageSize=100"),
+      owner.get("/incidents?status=active&pageSize=100"),
+      owner.get("/incidents?status=acknowledged&pageSize=100"),
     ]);
 
     expect(summary.body.monitors.total).toBe(monitors.body.total);
@@ -20,6 +22,11 @@ test.describe("dashboard", () => {
     }
     expect(summary.body.webhooks.total).toBe(webhooks.body.total);
     expect(summary.body.openIncidents).toBe(openIncidents.body.total);
+    expect(summary.body.activeIncidents).toBe(activeIncidents.body.total);
+    expect(activeIncidents.body.total).toBe(openIncidents.body.total + acknowledgedIncidents.body.total);
+    expect(summary.body.criticalIncidents).toBe(
+      activeIncidents.body.items.filter((item: { severity: string }) => item.severity === "critical").length,
+    );
 
     const created = await owner.post("/monitors", {
       name: `Dashboard ${uniqueSuffix()}`,
