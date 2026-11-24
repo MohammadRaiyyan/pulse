@@ -1,5 +1,5 @@
 import type { ErrorRequestHandler, RequestHandler } from "express";
-import { isProduction } from "../config/env.ts";
+import { isLocalEnvironment } from "../config/env.ts";
 import { toDatabaseAppError } from "../lib/database-errors.ts";
 import { AppError } from "../lib/errors.ts";
 import { logger } from "../lib/logger.ts";
@@ -33,7 +33,7 @@ const toAppError = (error: unknown) => {
 
   return new AppError(
     "INTERNAL_ERROR",
-    isProduction ? "Something went wrong" : String(error),
+    isLocalEnvironment ? String(error) : "Something went wrong",
   );
 };
 

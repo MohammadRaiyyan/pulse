@@ -1,12 +1,12 @@
 import type { Request, Response } from "express";
-import { isProduction } from "../config/env.ts";
+import { useSecureCookies } from "../config/env.ts";
 
 const REFRESH_COOKIE = "pulse_refresh";
 export const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 const cookieOptions = {
   httpOnly: true,
-  secure: isProduction,
+  secure: useSecureCookies,
   sameSite: "lax",
   path: "/api/auth",
 } as const;

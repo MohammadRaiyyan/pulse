@@ -3,7 +3,10 @@ import { env } from "./config/env.ts";
 import { sql } from "./db/client.ts";
 import { closeQueues } from "./jobs/queues.ts";
 import { logger } from "./lib/logger.ts";
+import { exitOnFatalErrors } from "./lib/process-errors.ts";
 import { redis } from "./lib/redis.ts";
+
+exitOnFatalErrors("api");
 
 const server = createApp().listen(env.PORT, () => {
   logger.info(`API listening on http://localhost:${env.PORT}`);

@@ -13,6 +13,7 @@ export const backendEnvironment = {
   REDIS_URL: process.env.E2E_REDIS_URL ?? "redis://localhost:6379/2",
   JWT_SECRET: "e2e-jwt-secret-that-is-at-least-32-characters-long",
   INVITE_SECRET: "e2e-invite-secret-that-is-at-least-32-characters-long",
+  TRUST_PROXY: "loopback",
   API_RATE_LIMIT_PER_MINUTE: "5000",
   CHECK_DISPATCH_INTERVAL_MS: "2000",
   SILENCE_CHECK_INTERVAL_MS: "5000",

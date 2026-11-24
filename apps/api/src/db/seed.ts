@@ -5,7 +5,7 @@ import type {
   Role,
 } from "@pulse/contracts";
 import { sql as rawSql } from "drizzle-orm";
-import { isProduction } from "../config/env.ts";
+import { isLocalEnvironment } from "../config/env.ts";
 import { daysFromNow, minutesFromNow } from "../lib/dates.ts";
 import { logger } from "../lib/logger.ts";
 import { redis } from "../lib/redis.ts";
@@ -25,8 +25,8 @@ import { inviteUrlFor } from "../modules/invitations/invitation.service.ts";
 import { hashPassword } from "../security/passwords.ts";
 import { db, sql } from "./client.ts";
 
-if (isProduction) {
-  logger.error("Refusing to seed a production database");
+if (!isLocalEnvironment) {
+  logger.error("Refusing to seed outside development or test");
   process.exit(1);
 }
 

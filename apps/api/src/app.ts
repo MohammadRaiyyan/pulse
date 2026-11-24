@@ -6,22 +6,30 @@ import { pinoHttp } from "pino-http";
 import { env } from "./config/env.ts";
 import { logger } from "./lib/logger.ts";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.ts";
+import { httpMetrics } from "./modules/metrics/metrics.middleware.ts";
+import { createMetricsRouter } from "./modules/metrics/metrics.routes.ts";
 import { ingestRouter } from "./modules/webhooks/ingest.routes.ts";
 import { apiRouter } from "./routes.ts";
 
 export const createApp = () => {
   const app = express();
 
-  app.set("trust proxy", 1);
+  app.set("trust proxy", env.TRUST_PROXY);
   app.disable("x-powered-by");
 
   app.use(helmet());
+  app.use(httpMetrics);
   app.use(
     pinoHttp({
       logger,
-      autoLogging: { ignore: (req) => req.url === "/api/health" },
+      autoLogging: {
+        ignore: (req) =>
+          req.url?.startsWith("/api/health") === true || req.url === "/metrics",
+      },
     }),
   );
+
+  app.use(createMetricsRouter());
 
   app.use("/hooks", ingestRouter);
 
