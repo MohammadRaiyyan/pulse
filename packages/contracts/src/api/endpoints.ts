@@ -7,6 +7,7 @@ import {
   updateAlertChannelSchema,
 } from "../alert-channels/index.ts";
 import {
+  authConfigSchema,
   authResponseSchema,
   changePasswordSchema,
   forgotPasswordSchema,
@@ -18,6 +19,7 @@ import {
   oauthCallbackSchema,
   registerSchema,
   resetPasswordSchema,
+  verifyEmailSchema,
 } from "../auth/index.ts";
 import { paginatedSchema, paginationQuerySchema } from "../common/index.ts";
 import { dashboardSummarySchema } from "../dashboard/index.ts";
@@ -95,6 +97,12 @@ export const resources = {
 };
 
 export const endpoints = {
+  authConfig: defineEndpoint({
+    method: "GET",
+    path: "/auth/config",
+    access: "public",
+    response: authConfigSchema,
+  }),
   login: defineEndpoint({
     method: "POST",
     path: "/auth/login",
@@ -136,6 +144,17 @@ export const endpoints = {
     path: "/auth/password/reset",
     access: "public",
     body: resetPasswordSchema,
+  }),
+  verifyEmail: defineEndpoint({
+    method: "POST",
+    path: "/auth/email/verify",
+    access: "public",
+    body: verifyEmailSchema,
+  }),
+  resendEmailVerification: defineEndpoint({
+    method: "POST",
+    path: "/me/email/verification",
+    access: "authenticated",
   }),
   authorizeOAuth: defineEndpoint({
     method: "POST",

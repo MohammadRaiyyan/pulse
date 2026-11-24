@@ -7,5 +7,3 @@ export type Role = z.infer<typeof roleSchema>;
 export const assignableRoleSchema = roleSchema.exclude(["owner"]);
 
 export type AssignableRole = z.infer<typeof assignableRoleSchema>;
-
-export const DEFAULT_SIGNUP_ROLE: AssignableRole = "viewer";

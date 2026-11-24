@@ -8,6 +8,7 @@ export const userSchema = z.object({
   name: nameSchema,
   email: emailSchema,
   role: roleSchema,
+  emailVerifiedAt: timestampSchema.nullable(),
   createdAt: timestampSchema,
 });
 
@@ -17,6 +18,8 @@ export const userRefSchema = userSchema.pick({ id: true, name: true });
 
 export type UserRef = z.infer<typeof userRefSchema>;
 
-export const updateProfileSchema = userSchema.pick({ name: true, email: true });
+export const updateProfileSchema = userSchema
+  .pick({ name: true, email: true })
+  .extend({ currentPassword: z.string().optional() });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

@@ -40,6 +40,7 @@ const envSchema = z.object({
   COOKIE_SECURE: emptyAsUnset(booleanString),
   TRUST_PROXY: trustProxy,
   METRICS_TOKEN: emptyAsUnset(z.string().min(32)),
+  OWNER_SIGNUP_ENABLED: z.stringbool().default(false),
   GITHUB_CLIENT_ID: z.string().default(""),
   GITHUB_CLIENT_SECRET: z.string().default(""),
   GOOGLE_CLIENT_ID: z.string().default(""),

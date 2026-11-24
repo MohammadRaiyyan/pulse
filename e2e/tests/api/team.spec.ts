@@ -1,5 +1,5 @@
 import { expect, test } from "../../support/fixtures.ts";
-import { DEMO_PASSWORD, demoUsers, tokenFromInviteUrl, uniqueEmail } from "../../support/api-client.ts";
+import { DEMO_PASSWORD, createTeammate, demoUsers, tokenFromInviteUrl, uniqueEmail } from "../../support/api-client.ts";
 import { API_ORIGIN } from "../../support/environment.ts";
 import { latestEmailLink } from "../../support/mailbox.ts";
 
@@ -36,6 +36,19 @@ test.describe("team and invitations", () => {
     const list = await owner.get("/invitations?status=accepted&pageSize=100");
     expect(list.body.items.some((item: { email: string }) => item.email === email)).toBe(true);
 
+  });
+
+  test("only the owner can change or remove an admin", async ({ ownerApi: owner }) => {
+    const firstAdmin = await createTeammate(owner, "admin");
+    const secondAdmin = await createTeammate(owner, "admin");
+
+    const demote = await firstAdmin.client.patch(`/members/${secondAdmin.user.id}`, { role: "viewer" });
+    expect(demote.status).toBe(403);
+    expect(demote.body.error.message).toBe("Only the workspace owner can change or remove an admin");
+    expect((await firstAdmin.client.delete(`/members/${secondAdmin.user.id}`)).status).toBe(403);
+
+    expect((await owner.patch(`/members/${secondAdmin.user.id}`, { role: "member" })).status).toBe(200);
+    expect((await owner.delete(`/members/${secondAdmin.user.id}`)).status).toBe(204);
   });
 
   test("invitation rules are enforced", async ({ ownerApi: owner }) => {

@@ -138,6 +138,7 @@ const seedUsers = async () => {
       demoUsers.map((user, index) => ({
         ...user,
         passwordHash,
+        emailVerifiedAt: daysFromNow(-(demoUsers.length - index) * 30),
         createdAt: daysFromNow(-(demoUsers.length - index) * 30),
       })),
     )

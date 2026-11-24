@@ -11,6 +11,13 @@ export const oauthProviderSchema = z.enum(["github", "google"]);
 
 export type OAuthProvider = z.infer<typeof oauthProviderSchema>;
 
+export const authConfigSchema = z.object({
+  signupOpen: z.boolean(),
+  oauthProviders: z.array(oauthProviderSchema),
+});
+
+export type AuthConfig = z.infer<typeof authConfigSchema>;
+
 export const oauthIntentSchema = z.enum(["sign-in", "link"]);
 
 export type OAuthIntent = z.infer<typeof oauthIntentSchema>;

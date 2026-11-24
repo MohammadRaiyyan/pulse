@@ -35,6 +35,9 @@ type SessionContext = {
 export const setSessionUser = (queryClient: QueryClient, user: User) =>
   queryClient.setQueryData(sessionQueryKey, user);
 
+export const reloadSessionUser = (queryClient: QueryClient) =>
+  queryClient.refetchQueries({ queryKey: sessionQueryKey });
+
 export const startSession = async (
   { queryClient, router }: SessionContext,
   user: User,

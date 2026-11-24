@@ -1,6 +1,7 @@
 import { daysAgo } from "../../lib/dates.ts";
 import { logger } from "../../lib/logger.ts";
 import { deleteDeliveriesOlderThan } from "../alert-channels/alert-delivery.repository.ts";
+import { deleteUsedOrExpiredEmailVerificationTokens } from "../auth/email-verification.repository.ts";
 import { deleteUsedOrExpiredResetTokens } from "../auth/password-reset.repository.ts";
 import { deleteStaleSessions } from "../auth/session.repository.ts";
 import { deleteChecksOlderThan } from "../monitors/monitor.repository.ts";
@@ -16,6 +17,7 @@ export const cleanUpOldData = async () => {
   await deleteUsedOrExpiredResetTokens();
   await pruneWebhookEvents();
   await deleteDeliveriesOlderThan(daysAgo(DELIVERY_RETENTION_DAYS));
+  await deleteUsedOrExpiredEmailVerificationTokens();
 
   logger.info("Old data cleaned up");
 };

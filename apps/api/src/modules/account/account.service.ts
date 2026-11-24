@@ -7,6 +7,10 @@ import { badRequest, conflict, notFound } from "../../lib/errors.ts";
 import { hashPassword, verifyPassword } from "../../security/passwords.ts";
 import { rejectAccessTokensIssuedBeforeNow } from "../../security/session-revocation.ts";
 import { startSession } from "../auth/auth.service.ts";
+import {
+  resendVerificationEmail,
+  trySendVerificationEmail,
+} from "../auth/email-verification.service.ts";
 import { revokeAllUserSessions } from "../auth/session.repository.ts";
 import {
   countLinkedAccounts,
@@ -21,13 +25,43 @@ const incorrectPassword = () =>
     currentPassword: ["Current password is incorrect"],
   });
 
+const assertCanChangeEmail = async (
+  user: AuthUser,
+  currentPassword: string | undefined,
+) => {
+  const passwordHash = await findPasswordHash(user.id);
+
+  if (!passwordHash) {
+    throw badRequest("Set a password before changing your email", {
+      currentPassword: ["Set a password before changing your email"],
+    });
+  }
+
+  if (!currentPassword) {
+    throw badRequest("Enter your current password to change your email", {
+      currentPassword: ["Enter your current password to change your email"],
+    });
+  }
+
+  if (!(await verifyPassword(passwordHash, currentPassword))) {
+    throw incorrectPassword();
+  }
+};
+
 export const updateProfile = async (
   user: AuthUser,
   input: UpdateProfileInput,
 ) => {
+  const isEmailChange = input.email !== user.email.toLowerCase();
+
+  if (isEmailChange) {
+    await assertCanChangeEmail(user, input.currentPassword);
+  }
+
   const updated = await updateUser(user.id, {
     name: input.name,
     email: input.email,
+    ...(isEmailChange ? { emailVerifiedAt: null } : {}),
   });
 
   if (!updated) {
@@ -35,6 +69,10 @@ export const updateProfile = async (
   }
 
   await forgetCachedUser(user.id);
+
+  if (isEmailChange) {
+    await trySendVerificationEmail(updated);
+  }
 
   return updated;
 };
@@ -89,3 +127,6 @@ export const disconnectProvider = async (
     throw notFound("Connection");
   }
 };
+
+export const resendEmailVerification = (user: AuthUser) =>
+  resendVerificationEmail(user);

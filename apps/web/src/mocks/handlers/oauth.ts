@@ -1,5 +1,4 @@
 import {
-  DEFAULT_SIGNUP_ROLE,
   type OAuthCallbackResponse,
   type OAuthIntent,
   type OAuthProvider,
@@ -14,14 +13,13 @@ import { db } from "../db";
 import { DEMO_ACCOUNTS } from "../demo-accounts";
 import { oauthCallbackUrlFor } from "../lib/app-url";
 import { authenticate } from "../lib/auth";
-import { newId } from "../lib/ids";
 import { findLinkedUser, linkProvider } from "../lib/linked-accounts";
 import { parseParam } from "../lib/request";
 import { errorResponse } from "../lib/responses";
 import { route } from "../lib/route";
 import { authResponse, withSession } from "../lib/session";
 import { decodeToken, encodeToken } from "../lib/stateless-token";
-import { createUser, findUserByEmail } from "../lib/users";
+import { findUserByEmail } from "../lib/users";
 
 const MOCK_AUTHORIZATION_CODE = "mock-authorization-code";
 const DEFAULT_REDIRECT: Record<OAuthIntent, string> = {
@@ -46,10 +44,11 @@ const stateSchema = z.object({
 const signInWithProvider = (provider: OAuthProvider) => {
   const profile = mockProfiles[provider];
   const user =
-    findLinkedUser(provider, profile.email) ??
-    findUserByEmail(profile.email) ??
-    createUser({ ...profile, role: DEFAULT_SIGNUP_ROLE, password: newId() });
-  linkProvider(user.id, provider, profile.email);
+    findLinkedUser(provider, profile.email) ?? findUserByEmail(profile.email);
+
+  if (user) {
+    linkProvider(user.id, provider, profile.email);
+  }
 
   return user;
 };
@@ -104,6 +103,13 @@ const completeOAuth = route(
     }
 
     const user = linkingUser ?? signInWithProvider(provider);
+
+    if (!user) {
+      return errorResponse(
+        "FORBIDDEN",
+        `No Pulse account uses ${mockProfiles[provider].email}. Pulse is invite-only, so ask a workspace admin to send you an invitation.`,
+      );
+    }
     const response: OAuthCallbackResponse = {
       ...authResponse(user),
       redirectTo: payload.redirectTo,

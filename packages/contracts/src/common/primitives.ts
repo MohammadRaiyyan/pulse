@@ -8,7 +8,9 @@ export const nameSchema = z.string().trim().min(1, "Name is required").max(100);
 
 export const tokenSchema = z.string().min(1);
 
-export const relativePathSchema = z.string().startsWith("/");
+export const relativePathSchema = z
+  .string()
+  .regex(/^\/(?![/\\])/, "Use a path on this site");
 
 export const nonNegativeIntSchema = z.int().min(0);
 

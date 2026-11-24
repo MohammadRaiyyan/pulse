@@ -1,4 +1,4 @@
-import { uniqueEmail } from "../../support/api-client.ts";
+import { createTeammate, uniqueEmail, uniqueSuffix } from "../../support/api-client.ts";
 import { choose, confirmDialog, expect, goTo, tableRow, test, toast } from "../../support/fixtures.ts";
 import { WEB_ORIGIN } from "../../support/environment.ts";
 
@@ -81,6 +81,23 @@ test.describe("team", () => {
 
     await guest.goto(invitation.inviteUrl);
     await expect(guest.getByText("This invitation is invalid or has expired")).toBeVisible();
+  });
+
+  test("admins cannot change or remove other admins", async ({ pageAs, ownerApi }) => {
+    const otherAdmin = await createTeammate(ownerApi, "admin", `Ada Admin ${uniqueSuffix()}`);
+    const member = await createTeammate(ownerApi, "member", `Milo Member ${uniqueSuffix()}`);
+
+    const adminPage = await pageAs("admin");
+    await goTo(adminPage, "Team");
+    await expect(tableRow(adminPage, otherAdmin.email)).toBeVisible();
+    await expect(adminPage.getByLabel(`Role for ${otherAdmin.name}`)).toHaveCount(0);
+    await expect(adminPage.getByRole("button", { name: `Remove ${otherAdmin.name}` })).toHaveCount(0);
+    await expect(adminPage.getByLabel(`Role for ${member.name}`)).toBeVisible();
+
+    const ownerPage = await pageAs("owner");
+    await goTo(ownerPage, "Team");
+    await expect(ownerPage.getByLabel(`Role for ${otherAdmin.name}`)).toBeVisible();
+    await expect(ownerPage.getByRole("button", { name: `Remove ${otherAdmin.name}` })).toBeVisible();
   });
 
   test("the owner row is protected", async ({ pageAs }) => {

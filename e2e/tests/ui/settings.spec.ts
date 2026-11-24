@@ -1,4 +1,4 @@
-import { createTeammate } from "../../support/api-client.ts";
+import { createTeammate, uniqueEmail } from "../../support/api-client.ts";
 import { WEB_ORIGIN } from "../../support/environment.ts";
 import { expect, sidebar, signInContext, test, toast } from "../../support/fixtures.ts";
 
@@ -16,6 +16,7 @@ test.describe("account settings", () => {
     await expect(page.getByRole("button", { name: /Paula Updated/ })).toBeVisible();
 
     await page.getByLabel("Email").fill("owner@pulse.dev");
+    await page.getByLabel("Confirm with your password").fill(teammate.password);
     await page.getByRole("button", { name: "Save profile" }).click();
     await expect(page.getByText("An account with this email already exists")).toBeVisible();
 
@@ -82,11 +83,38 @@ test.describe("account settings", () => {
     await second.close();
   });
 
-  test("connecting a provider that is not configured explains why", async ({ pageAs }) => {
+  test("connected accounts explain when no provider is configured", async ({ pageAs }) => {
     const page = await pageAs("owner");
     await page.goto("/settings");
-    await expect(page.getByText("Not connected").first()).toBeVisible();
-    await page.getByRole("button", { name: "Connect" }).first().click();
-    await toast(page, /not configured/);
+    await expect(page.getByText("Sign-in with GitHub or Google is not set up on this server.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Connect" })).toHaveCount(0);
+  });
+
+  test("changing the email asks for the password and shows a verification banner", async ({ browser, ownerApi }) => {
+    const teammate = await createTeammate(ownerApi, "member", "Vera Verify");
+    const context = await browser.newContext({ baseURL: WEB_ORIGIN });
+    await signInContext(context, teammate.email);
+    const page = await context.newPage();
+    const banner = page.getByRole("region", { name: "Email verification" });
+
+    await page.goto("/settings");
+    await expect(page.getByLabel("Confirm with your password")).toHaveCount(0);
+    await expect(banner).toHaveCount(0);
+
+    const newEmail = uniqueEmail("vera");
+    await page.getByLabel("Email").fill(newEmail);
+    await page.getByLabel("Confirm with your password").fill("not-my-password");
+    await page.getByRole("button", { name: "Save profile" }).click();
+    await expect(page.getByText("Current password is incorrect")).toBeVisible();
+
+    await page.getByLabel("Confirm with your password").fill(teammate.password);
+    await page.getByRole("button", { name: "Save profile" }).click();
+    await toast(page, "Profile updated");
+    await expect(banner).toContainText(`We sent a link to ${newEmail}`);
+
+    await banner.getByRole("button", { name: "Resend email" }).click();
+    await toast(page, "Verification email sent");
+    await expect(banner.getByRole("button", { name: "Email sent" })).toBeDisabled();
+    await context.close();
   });
 });

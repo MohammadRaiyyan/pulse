@@ -137,6 +137,7 @@ export const acceptPendingInvitation = (
         email: invitation.email,
         role: invitation.role,
         passwordHash: member.passwordHash,
+        emailVerifiedAt: new Date(),
       })
       .returning(userColumns);
 

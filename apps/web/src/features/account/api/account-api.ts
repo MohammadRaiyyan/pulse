@@ -15,6 +15,8 @@ export const accountApi = {
     callEndpoint(endpoints.updateProfile, { body }),
   changePassword: (body: ChangePasswordInput) =>
     callEndpoint(endpoints.changePassword, { body }),
+  resendEmailVerification: () =>
+    callEndpoint(endpoints.resendEmailVerification),
   signOutEverywhere: () => callEndpoint(endpoints.logoutEverywhere),
   disconnect: (provider: OAuthProvider) =>
     callEndpoint(endpoints.disconnectProvider, { params: { provider } }),

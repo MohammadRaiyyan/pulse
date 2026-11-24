@@ -10,6 +10,7 @@ import { IdentityCell } from "@/components/data/identity-cell";
 import { ControlSkeleton } from "@/components/skeleton/control-skeleton";
 import { TextSkeleton } from "@/components/skeleton/text-skeleton";
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
+import { useAuthConfig } from "@/features/auth/hooks/use-auth-config";
 import { useStartOAuth } from "@/features/auth/hooks/use-auth-mutations";
 import { providerMeta } from "@/features/auth/provider-meta";
 import { formatDateTime } from "@/lib/format/date";
@@ -111,10 +112,24 @@ const ProviderList = ({ children }: { children: ReactNode }) => (
 
 export const ConnectedAccounts = () => {
   const { data: accounts } = useSuspenseQuery(connectionsQuery);
+  const { oauthProviders } = useAuthConfig();
+  const providers = oauthProviderSchema.options.filter(
+    (provider) =>
+      oauthProviders.includes(provider) ||
+      accounts.some((account) => account.provider === provider),
+  );
+
+  if (providers.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Sign-in with GitHub or Google is not set up on this server.
+      </p>
+    );
+  }
 
   return (
     <ProviderList>
-      {oauthProviderSchema.options.map((provider) => (
+      {providers.map((provider) => (
         <ProviderRow
           key={provider}
           provider={provider}

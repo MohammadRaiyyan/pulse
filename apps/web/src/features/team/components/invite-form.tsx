@@ -35,7 +35,7 @@ export const InviteForm = ({
           {(field) => (
             <field.SelectField
               label="Role"
-              description="Admins manage the team, members edit monitors, viewers only read."
+              description="Viewers can only read. Members also manage monitors, webhooks and incidents. Admins also manage the team and alert channels."
               options={assignableRoleOptions}
             />
           )}

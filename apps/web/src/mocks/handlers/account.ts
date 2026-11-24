@@ -12,13 +12,33 @@ import {
 
 const updateProfile = route(
   endpoints.updateProfile,
-  ({ body, user, respond }) => {
-    assertEmailAvailable(body.email, user.id);
-    const updated = { ...user, ...body };
+  ({ body: { currentPassword, ...profile }, user, respond }) => {
+    const isEmailChange = profile.email !== user.email;
+
+    if (
+      isEmailChange &&
+      !verifyPassword(user.id, currentPassword ?? "")
+    ) {
+      return errorResponse("VALIDATION_ERROR", "Current password is incorrect", {
+        fieldErrors: { currentPassword: ["Current password is incorrect"] },
+      });
+    }
+
+    assertEmailAvailable(profile.email, user.id);
+    const updated = {
+      ...user,
+      ...profile,
+      emailVerifiedAt: isEmailChange ? null : user.emailVerifiedAt,
+    };
     db.users.set(updated.id, updated);
 
     return respond(updated);
   },
+);
+
+const resendEmailVerification = route(
+  endpoints.resendEmailVerification,
+  () => noContent(),
 );
 
 const changePassword = route(endpoints.changePassword, ({ body, user }) => {
@@ -51,6 +71,7 @@ const disconnectProvider = route(
 
 export const accountHandlers = [
   updateProfile,
+  resendEmailVerification,
   changePassword,
   listConnections,
   disconnectProvider,

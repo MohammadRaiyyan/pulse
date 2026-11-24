@@ -8,8 +8,10 @@ import {
   type OAuthProvider,
   type RegisterInput,
   type ResetPasswordInput,
+  type VerifyEmailInput,
   endpoints,
 } from "@pulse/contracts";
+import { queryOptions } from "@tanstack/react-query";
 import { clearAccessToken, setAccessToken } from "@/lib/api/access-token";
 import { callEndpoint } from "@/lib/api/call-endpoint";
 
@@ -33,6 +35,8 @@ export const authApi = {
     callEndpoint(endpoints.forgotPassword, { body }),
   resetPassword: (body: ResetPasswordInput) =>
     callEndpoint(endpoints.resetPassword, { body }),
+  verifyEmail: (body: VerifyEmailInput) =>
+    callEndpoint(endpoints.verifyEmail, { body }),
   authorizeOAuth: (provider: OAuthProvider, body: OAuthAuthorizeInput) =>
     callEndpoint(endpoints.authorizeOAuth, { params: { provider }, body }),
   completeOAuth: async (provider: OAuthProvider, body: OAuthCallbackInput) => {
@@ -51,3 +55,9 @@ export const authApi = {
     }
   },
 };
+
+export const authConfigQuery = queryOptions({
+  queryKey: ["auth-config"],
+  queryFn: () => callEndpoint(endpoints.authConfig),
+  staleTime: 5 * 60_000,
+});

@@ -3,10 +3,10 @@ import { forbidden, notFound } from "../../lib/errors.ts";
 import { toLimitOffset, toPage } from "../../lib/pagination.ts";
 import { publishChange } from "../../lib/realtime.ts";
 import {
-  deleteUserUnlessOwner,
+  deleteMember,
   findUserById,
   listUsers,
-  updateRoleUnlessOwner,
+  updateMemberRole,
 } from "../users/user.repository.ts";
 import { type AuthUser, forgetCachedUser } from "../users/user.service.ts";
 
@@ -20,9 +20,14 @@ const assertNotSelf = (actor: AuthUser, memberId: string) => {
 
 const explainBlockedChange = async (memberId: string) => {
   const member = await findUserById(memberId);
-  return member
+
+  if (!member) {
+    return notFound(LABEL);
+  }
+
+  return member.role === "owner"
     ? forbidden("The workspace owner cannot be changed or removed")
-    : notFound(LABEL);
+    : forbidden("Only the workspace owner can change or remove an admin");
 };
 
 export const getMembers = async (query: PaginationQuery) => {
@@ -48,7 +53,7 @@ export const changeMemberRole = async (
 ) => {
   assertNotSelf(actor, id);
 
-  const member = await updateRoleUnlessOwner(id, input.role);
+  const member = await updateMemberRole(id, input.role, actor.role);
 
   if (!member) {
     throw await explainBlockedChange(id);
@@ -63,7 +68,7 @@ export const changeMemberRole = async (
 export const removeMember = async (actor: AuthUser, id: string) => {
   assertNotSelf(actor, id);
 
-  const member = await deleteUserUnlessOwner(id);
+  const member = await deleteMember(id, actor.role);
 
   if (!member) {
     throw await explainBlockedChange(id);

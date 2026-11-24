@@ -6,7 +6,13 @@ export const useCanManageMember = (member: User) => {
   const currentUser = useCurrentUser();
   const canManageMembers = useCan("member:manage");
 
+  const isProtectedAdmin =
+    member.role === "admin" && currentUser.role !== "owner";
+
   return (
-    canManageMembers && member.role !== "owner" && member.id !== currentUser.id
+    canManageMembers &&
+    member.role !== "owner" &&
+    member.id !== currentUser.id &&
+    !isProtectedAdmin
   );
 };

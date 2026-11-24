@@ -1,5 +1,5 @@
 import type { Role } from "@pulse/contracts";
-import { and, count, desc, eq, ne, sql } from "drizzle-orm";
+import { and, count, desc, eq, ne, notInArray, sql } from "drizzle-orm";
 import { db } from "../../db/client.ts";
 import { users } from "../../models/index.ts";
 
@@ -8,6 +8,7 @@ export const userColumns = {
   name: users.name,
   email: users.email,
   role: users.role,
+  emailVerifiedAt: users.emailVerifiedAt,
   createdAt: users.createdAt,
 };
 
@@ -16,6 +17,7 @@ export type UserRecord = {
   name: string;
   email: string;
   role: Role;
+  emailVerifiedAt: Date | null;
   createdAt: Date;
 };
 
@@ -24,7 +26,12 @@ type NewUser = {
   email: string;
   role: Role;
   passwordHash: string | null;
+  emailVerifiedAt?: Date | null;
 };
+
+type NewOwner = Omit<NewUser, "role">;
+
+const OWNER_BOOTSTRAP_LOCK = 7_301_001;
 
 const byEmail = (email: string) =>
   sql`lower(${users.email}) = ${email.toLowerCase()}`;
@@ -55,9 +62,9 @@ export const findPasswordHash = async (id: string) => {
   return user?.passwordHash ?? null;
 };
 
-export const countUsers = async () => {
-  const [result] = await db.select({ total: count() }).from(users);
-  return result?.total ?? 0;
+export const hasAnyUser = async () => {
+  const [user] = await db.select({ id: users.id }).from(users).limit(1);
+  return Boolean(user);
 };
 
 export const listUsers = async (limit: number, offset: number) => {
@@ -84,6 +91,24 @@ export const insertUser = async (values: NewUser) => {
   return user;
 };
 
+export const insertFirstUserAsOwner = (values: NewOwner) =>
+  db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${OWNER_BOOTSTRAP_LOCK})`);
+
+    const [existing] = await tx.select({ id: users.id }).from(users).limit(1);
+
+    if (existing) {
+      return undefined;
+    }
+
+    const [user] = await tx
+      .insert(users)
+      .values({ ...values, role: "owner" })
+      .returning(userColumns);
+
+    return user;
+  });
+
 export const updateUser = async (id: string, changes: Partial<NewUser>) => {
   const [user] = await db
     .update(users)
@@ -93,19 +118,28 @@ export const updateUser = async (id: string, changes: Partial<NewUser>) => {
   return user;
 };
 
-export const updateRoleUnlessOwner = async (id: string, role: Role) => {
+const changeableBy = (actorRole: Role) =>
+  actorRole === "owner"
+    ? ne(users.role, "owner")
+    : notInArray(users.role, ["owner", "admin"]);
+
+export const updateMemberRole = async (
+  id: string,
+  role: Role,
+  actorRole: Role,
+) => {
   const [user] = await db
     .update(users)
     .set({ role })
-    .where(and(eq(users.id, id), ne(users.role, "owner")))
+    .where(and(eq(users.id, id), changeableBy(actorRole)))
     .returning(userColumns);
   return user;
 };
 
-export const deleteUserUnlessOwner = async (id: string) => {
+export const deleteMember = async (id: string, actorRole: Role) => {
   const [user] = await db
     .delete(users)
-    .where(and(eq(users.id, id), ne(users.role, "owner")))
+    .where(and(eq(users.id, id), changeableBy(actorRole)))
     .returning({ id: users.id });
   return user;
 };
