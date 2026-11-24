@@ -11,6 +11,7 @@ import {
   buildUptimeHistory,
   deriveServiceStatus,
   historyStartDay,
+  webhookDailyCounts,
 } from "./service-health.ts";
 import {
   deleteService,
@@ -18,6 +19,7 @@ import {
   findDailyCountsByServiceIds,
   findMembersByServiceIds,
   findService,
+  findWebhookOutages,
   insertService,
   listActiveIncidentsForSources,
   listServices,
@@ -154,10 +156,15 @@ export const getServiceOverview = async (id: string) => {
   }
 
   const now = new Date();
+  const fromDay = historyStartDay(now);
   const [members, dailyCounts] = await Promise.all([
     findMembersByServiceIds([id]),
-    findDailyCountsByServiceIds([id], historyStartDay(now)),
+    findDailyCountsByServiceIds([id], fromDay),
   ]);
+  const outages = await findWebhookOutages(
+    members.webhooks.map((webhook) => webhook.id),
+    fromDay,
+  );
   const activeIncidents = await listActiveIncidentsForSources([
     ...members.monitors.map((monitor) => monitor.id),
     ...members.webhooks.map((webhook) => webhook.id),
@@ -177,6 +184,11 @@ export const getServiceOverview = async (id: string) => {
       status: webhook.status,
     })),
     activeIncidents,
-    uptime: buildUptimeHistory(dailyCounts, now),
+    uptime: buildUptimeHistory(
+      members.monitors.length > 0
+        ? dailyCounts
+        : webhookDailyCounts(members.webhooks, outages, now),
+      now,
+    ),
   };
 };

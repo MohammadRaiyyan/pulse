@@ -137,6 +137,14 @@ const errorMessageFor: Record<CheckOutcome, string | null> = {
 const responseTimeAt = (baseMs: number, index: number) =>
   Math.round(baseMs + baseMs * 0.25 * Math.sin(index / 4) + (index % 7) * 4);
 
+const historyNoise = (day: number, salt: number) => {
+  const value = Math.sin(day * 12.9898 + salt * 78.233) * 43_758.5453;
+  return value - Math.floor(value);
+};
+
+const dailyResponseFactor = (day: number, monitorIndex: number, isSlow: boolean) =>
+  0.85 + historyNoise(day, monitorIndex + 30) * 0.3 + Math.sin(day / 9) * 0.12 + (isSlow ? 0.5 : 0);
+
 const isoDaysAgo = (days: number) => daysFromNow(-days).toISOString().slice(0, 10);
 
 const seedDailyHistory = async (monitorIds: string[]) => {
@@ -150,16 +158,20 @@ const seedDailyHistory = async (monitorIds: string[]) => {
     return Array.from({ length: HISTORY_DAYS - 1 }, (_, index) => {
       const daysBack = index + 1;
       const checkCount = Math.round(86_400 / seed.intervalSeconds);
-      const hasOutage = (daysBack * (monitorIndex + 3)) % 29 === 0;
-      const isSlow = (daysBack + monitorIndex * 5) % 13 === 0;
+      const hasOutage = historyNoise(daysBack, monitorIndex) < 0.05;
+      const isSlow = historyNoise(daysBack, monitorIndex + 20) < 0.08;
 
       return {
         monitorId,
         day: isoDaysAgo(daysBack),
         checkCount,
-        downCount: hasOutage ? Math.max(1, Math.round(checkCount * 0.03)) : 0,
+        downCount: hasOutage
+          ? Math.max(1, Math.round(checkCount * (0.01 + historyNoise(daysBack, monitorIndex + 10) * 0.04)))
+          : 0,
         degradedCount: isSlow ? Math.round(checkCount * 0.08) : 0,
-        totalResponseTimeMs: checkCount * seed.baseResponseMs,
+        totalResponseTimeMs: Math.round(
+          checkCount * seed.baseResponseMs * dailyResponseFactor(daysBack, monitorIndex, isSlow),
+        ),
       };
     });
   });
@@ -327,7 +339,7 @@ const seedWebhooks = async (channelIds: string[]) => {
         status: "active",
         eventCount: stripeEvents.length,
         lastReceivedAt: stripeEvents[0]?.receivedAt ?? null,
-        createdAt: minutesAgo(30_000),
+        createdAt: minutesAgo(130_000),
       },
       {
         name: "GitHub deploys",
@@ -492,6 +504,20 @@ if (publicApi && payments && legacy && ownerUser && adminUser) {
       resolvedAt: minutesAgo(2_820),
       resolvedById: adminUser.id,
       resolvedByName: adminUser.name,
+    },
+    {
+      sourceType: "webhook",
+      sourceId: stripe.id,
+      sourceName: stripe.name,
+      status: "resolved",
+      severity: "critical",
+      cause: "No events received within 1h",
+      startedAt: minutesAgo(27_000),
+      acknowledgedAt: minutesAgo(26_980),
+      acknowledgedById: adminUser.id,
+      acknowledgedByName: adminUser.name,
+      resolvedAt: minutesAgo(26_760),
+      resolutionReason: "recovered",
     },
   ]);
 }

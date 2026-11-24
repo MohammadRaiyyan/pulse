@@ -11,7 +11,7 @@ export const AppLayout = () => {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="min-w-0">
         <AppHeader liveStatus={liveStatus} />
         <EmailVerificationBanner />
         <div className="flex-1 p-4 md:p-6">

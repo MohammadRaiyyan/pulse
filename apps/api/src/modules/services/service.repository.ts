@@ -6,8 +6,10 @@ import {
   eq,
   gte,
   inArray,
+  isNull,
   ne,
   notInArray,
+  or,
   sql,
 } from "drizzle-orm";
 import { type Transaction, db } from "../../db/client.ts";
@@ -227,6 +229,7 @@ export const findMembersByServiceIds = async (serviceIds: string[]) => {
         serviceId: webhooks.serviceId,
         name: webhooks.name,
         status: webhooks.status,
+        createdAt: webhooks.createdAt,
       })
       .from(webhooks)
       .where(inArray(webhooks.serviceId, serviceIds))
@@ -291,4 +294,26 @@ export const findDailyCountsByServiceIds = async (
       ),
     )
     .groupBy(monitors.serviceId, monitorDailyStats.day);
+};
+
+export const findWebhookOutages = async (webhookIds: string[], fromDay: string) => {
+  if (webhookIds.length === 0) {
+    return [];
+  }
+
+  return db
+    .select({
+      sourceId: incidents.sourceId,
+      startedAt: incidents.startedAt,
+      resolvedAt: incidents.resolvedAt,
+    })
+    .from(incidents)
+    .where(
+      and(
+        eq(incidents.sourceType, "webhook"),
+        eq(incidents.severity, "critical"),
+        inArray(incidents.sourceId, webhookIds),
+        or(isNull(incidents.resolvedAt), gte(incidents.resolvedAt, new Date(fromDay))),
+      ),
+    );
 };

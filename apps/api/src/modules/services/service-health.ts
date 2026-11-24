@@ -96,3 +96,36 @@ export const buildUptimeHistory = (
 
   return { uptimePercent: toPercent(totalChecks, totalDown), days };
 };
+
+export type TimeWindow = { startedAt: Date; resolvedAt: Date | null };
+
+const overlapSeconds = (fromMs: number, toMs: number, start: Date, end: Date) =>
+  Math.max(0, Math.min(toMs, end.getTime()) - Math.max(fromMs, start.getTime())) / 1000;
+
+export const webhookDailyCounts = (
+  webhooks: readonly { createdAt: Date }[],
+  outages: readonly TimeWindow[],
+  now: Date,
+): DailyCounts[] => {
+  const firstDayMs = Date.parse(historyStartDay(now));
+
+  return Array.from({ length: UPTIME_HISTORY_DAYS }, (_, index) => {
+    const dayStart = firstDayMs + index * DAY_MS;
+    const dayEnd = Math.min(dayStart + DAY_MS, now.getTime());
+    const observed = webhooks.reduce(
+      (total, webhook) => total + overlapSeconds(dayStart, dayEnd, webhook.createdAt, now),
+      0,
+    );
+    const down = outages.reduce(
+      (total, outage) =>
+        total + overlapSeconds(dayStart, dayEnd, outage.startedAt, outage.resolvedAt ?? now),
+      0,
+    );
+
+    return {
+      day: toIsoDay(new Date(dayStart)),
+      checkCount: Math.round(observed),
+      downCount: Math.round(Math.min(down, observed)),
+    };
+  }).filter((row) => row.checkCount > 0);
+};

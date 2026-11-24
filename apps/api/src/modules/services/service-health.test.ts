@@ -5,6 +5,7 @@ import {
   deriveOverallStatus,
   deriveServiceStatus,
   historyStartDay,
+  webhookDailyCounts,
 } from "./service-health.ts";
 
 const active = (status: Parameters<typeof deriveServiceStatus>[0][number]["status"]) => ({
@@ -77,5 +78,33 @@ describe("uptime history", () => {
     const history = buildUptimeHistory([{ day: "2026-01-01", checkCount: 10, downCount: 10 }], now);
 
     expect(history.uptimePercent).toBeNull();
+  });
+});
+
+describe("webhook uptime", () => {
+  const now = new Date("2026-03-10T12:00:00Z");
+
+  it("counts only the time since the webhook existed and subtracts critical outages", () => {
+    const counts = webhookDailyCounts(
+      [{ createdAt: new Date("2026-03-09T00:00:00Z") }],
+      [{ startedAt: new Date("2026-03-09T06:00:00Z"), resolvedAt: new Date("2026-03-09T12:00:00Z") }],
+      now,
+    );
+
+    expect(counts).toEqual([
+      { day: "2026-03-09", checkCount: 86_400, downCount: 21_600 },
+      { day: "2026-03-10", checkCount: 43_200, downCount: 0 },
+    ]);
+    expect(buildUptimeHistory(counts, now).uptimePercent).toBe(83.33);
+  });
+
+  it("treats an open outage as running until now", () => {
+    const counts = webhookDailyCounts(
+      [{ createdAt: new Date("2026-03-10T00:00:00Z") }],
+      [{ startedAt: new Date("2026-03-10T09:00:00Z"), resolvedAt: null }],
+      now,
+    );
+
+    expect(counts).toEqual([{ day: "2026-03-10", checkCount: 43_200, downCount: 10_800 }]);
   });
 });

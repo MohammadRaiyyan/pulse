@@ -41,7 +41,7 @@ export const FieldShell = <TValue,>({
     field.form.store,
     (state) => state.submissionAttempts > 0,
   );
-  const isValidated = field.state.meta.isDirty || hasSubmitted;
+  const isValidated = field.state.meta.isBlurred || hasSubmitted;
   const errors = isValidated ? field.state.meta.errors.map(toErrorMessage) : [];
   const invalid = errors.length > 0;
   const control = children(

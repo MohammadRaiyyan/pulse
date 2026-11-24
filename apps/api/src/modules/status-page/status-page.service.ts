@@ -13,9 +13,11 @@ import {
   deriveOverallStatus,
   deriveServiceStatus,
   historyStartDay,
+  webhookDailyCounts,
 } from "../services/service-health.ts";
 import {
   findDailyCountsByServiceIds,
+  findWebhookOutages,
   listPublicServices,
 } from "../services/service.repository.ts";
 import {
@@ -70,11 +72,32 @@ const buildPublicStatus = async () => {
   const now = new Date();
   const publicServices = await listPublicServices();
   const serviceIds = publicServices.map((service) => service.id);
+  const fromDay = historyStartDay(now);
   const [health, dailyCounts] = await Promise.all([
     loadMemberHealth(serviceIds),
-    findDailyCountsByServiceIds(serviceIds, historyStartDay(now)),
+    findDailyCountsByServiceIds(serviceIds, fromDay),
   ]);
   const countsByService = Map.groupBy(dailyCounts, (row) => row.serviceId);
+  const outagesBySource = Map.groupBy(
+    await findWebhookOutages(
+      publicServices.flatMap((service) =>
+        health.webhooksOf(service.id).map((webhook) => webhook.id),
+      ),
+      fromDay,
+    ),
+    (outage) => outage.sourceId,
+  );
+  const uptimeCounts = (serviceId: string) => {
+    const webhooks = health.webhooksOf(serviceId);
+
+    return health.monitorsOf(serviceId).length > 0
+      ? (countsByService.get(serviceId) ?? [])
+      : webhookDailyCounts(
+          webhooks,
+          webhooks.flatMap((webhook) => outagesBySource.get(webhook.id) ?? []),
+          now,
+        );
+  };
   const serviceByMember = new Map(
     publicServices.flatMap((service) =>
       [...health.monitorsOf(service.id), ...health.webhooksOf(service.id)].map(
@@ -88,7 +111,7 @@ const buildPublicStatus = async () => {
     status: deriveServiceStatus(
       toMemberStates(health.monitorsOf(service.id), health.webhooksOf(service.id)),
     ),
-    ...buildUptimeHistory(countsByService.get(service.id) ?? [], now),
+    ...buildUptimeHistory(uptimeCounts(service.id), now),
   }));
 
   const incidents = (

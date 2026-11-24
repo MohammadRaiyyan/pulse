@@ -28,7 +28,7 @@ const useIncidentColumns = (): DataTableColumn<Incident>[] => [
     id: "cause",
     header: "Cause",
     skeleton: <TextSkeleton className="w-48" />,
-    className: "max-w-72 truncate text-muted-foreground",
+    className: "max-w-56 truncate text-muted-foreground",
     cell: (incident) => incident.cause,
   },
   {

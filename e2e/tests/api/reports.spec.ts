@@ -18,30 +18,43 @@ const LAST_DAY_BACK = 89;
 const from = isoDaysAgo(LAST_DAY_BACK);
 const to = isoDaysAgo(FIRST_DAY_BACK);
 
+const historyNoise = (day: number, salt: number) => {
+  const value = Math.sin(day * 12.9898 + salt * 78.233) * 43_758.5453;
+  return value - Math.floor(value);
+};
+
+const dailyResponseFactor = (day: number, monitorIndex: number, isSlow: boolean) =>
+  0.85 + historyNoise(day, monitorIndex + 30) * 0.3 + Math.sin(day / 9) * 0.12 + (isSlow ? 0.5 : 0);
+
 const expectedHistory = (monitorIndex: number) => {
   const seed = seededMonitors[monitorIndex]!;
   const perDay = Math.round(86_400 / seed.intervalSeconds);
   let checks = 0;
   let downChecks = 0;
   let degradedChecks = 0;
+  let totalResponseTimeMs = 0;
 
   for (let daysBack = FIRST_DAY_BACK; daysBack <= LAST_DAY_BACK; daysBack += 1) {
     checks += perDay;
 
-    if ((daysBack * (monitorIndex + 3)) % 29 === 0) {
-      downChecks += Math.max(1, Math.round(perDay * 0.03));
+    const isSlow = historyNoise(daysBack, monitorIndex + 20) < 0.08;
+
+    if (historyNoise(daysBack, monitorIndex) < 0.05) {
+      downChecks += Math.max(1, Math.round(perDay * (0.01 + historyNoise(daysBack, monitorIndex + 10) * 0.04)));
     }
 
-    if ((daysBack + monitorIndex * 5) % 13 === 0) {
+    if (isSlow) {
       degradedChecks += Math.round(perDay * 0.08);
     }
+
+    totalResponseTimeMs += Math.round(perDay * seed.baseResponseMs * dailyResponseFactor(daysBack, monitorIndex, isSlow));
   }
 
   return {
     checks,
     downChecks,
     degradedChecks,
-    averageResponseTimeMs: seed.baseResponseMs,
+    averageResponseTimeMs: Math.round(totalResponseTimeMs / checks),
     uptimePercent: ((checks - downChecks) * 100) / checks,
   };
 };

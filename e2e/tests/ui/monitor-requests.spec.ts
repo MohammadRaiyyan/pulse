@@ -31,6 +31,7 @@ test.describe("monitor request settings", () => {
 
     await dialog.getByRole("button", { name: "Add header" }).click();
     await dialog.getByLabel("Header 1", { exact: true }).fill("Host");
+    await dialog.getByLabel("Header 1", { exact: true }).blur();
     await expect(dialog.getByText("This header is managed by Pulse and cannot be set")).toBeVisible();
     await dialog.getByLabel("Header 1", { exact: true }).fill("X-Probe-Credential");
     await dialog.getByLabel("Header 1 is secret").click();
@@ -38,6 +39,7 @@ test.describe("monitor request settings", () => {
     await expect(dialog.getByLabel("Header 1 value")).toHaveAttribute("type", "password");
 
     await dialog.getByLabel("Body").fill('{"ping": ');
+    await dialog.getByLabel("Body").blur();
     await expect(dialog.getByText("Enter valid JSON")).toBeVisible();
     await dialog.getByLabel("Body").fill('{"ping": true}');
     await expect(dialog.getByText("Enter valid JSON")).toBeHidden();
