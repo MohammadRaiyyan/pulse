@@ -12,6 +12,7 @@ import { invitationRouter } from "./modules/invitations/invitation.routes.ts";
 import { memberRouter } from "./modules/members/member.routes.ts";
 import { monitorRouter } from "./modules/monitors/monitor.routes.ts";
 import { oauthRouter } from "./modules/oauth/oauth.routes.ts";
+import { reportRouter } from "./modules/reports/report.routes.ts";
 import { webhookRouter } from "./modules/webhooks/webhook.routes.ts";
 
 const apiLimit = rateLimit({
@@ -34,6 +35,7 @@ apiRouter.use(monitorRouter);
 apiRouter.use(webhookRouter);
 apiRouter.use(alertChannelRouter);
 apiRouter.use(incidentRouter);
+apiRouter.use(reportRouter);
 apiRouter.use(memberRouter);
 apiRouter.use(invitationRouter);
 apiRouter.use(liveStreamRouter);

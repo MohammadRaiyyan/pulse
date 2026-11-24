@@ -39,6 +39,7 @@ import {
   monitorSchema,
   updateMonitorSchema,
 } from "../monitors/index.ts";
+import { reportQuerySchema, reportSchema } from "../reports/index.ts";
 import { updateProfileSchema, userSchema } from "../users/index.ts";
 import {
   createWebhookSchema,
@@ -199,6 +200,19 @@ export const endpoints = {
     path: "/dashboard/summary",
     access: "monitor:read",
     response: dashboardSummarySchema,
+  }),
+  report: defineEndpoint({
+    method: "GET",
+    path: "/reports",
+    access: "monitor:read",
+    query: reportQuerySchema,
+    response: reportSchema,
+  }),
+  exportReport: defineEndpoint({
+    method: "GET",
+    path: "/reports/export",
+    access: "monitor:read",
+    query: reportQuerySchema,
   }),
   listMonitorChecks: defineEndpoint({
     method: "GET",
