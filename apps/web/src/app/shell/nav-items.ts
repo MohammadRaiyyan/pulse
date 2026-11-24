@@ -3,6 +3,7 @@ import type { LinkProps } from "@tanstack/react-router";
 import {
   ActivityIcon,
   BellRingIcon,
+  ChartColumnIcon,
   LayoutDashboardIcon,
   type LucideIcon,
   SirenIcon,
@@ -45,6 +46,12 @@ export const navItems: readonly NavItem[] = [
     icon: SirenIcon,
     permission: "incident:read",
     badge: ActiveIncidentsBadge,
+  },
+  {
+    title: "Reports",
+    to: "/reports",
+    icon: ChartColumnIcon,
+    permission: "monitor:read",
   },
   {
     title: "Alert channels",

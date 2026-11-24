@@ -20,8 +20,8 @@ const buildUrl = (path: string, query?: object) => {
   return `${env.apiUrl}${path}${queryString}`;
 };
 
-const buildHeaders = (hasBody: boolean) => {
-  const headers = new Headers({ Accept: "application/json" });
+const buildHeaders = (hasBody: boolean, accept: string) => {
+  const headers = new Headers({ Accept: accept });
   const accessToken = getAccessToken();
 
   if (hasBody) {
@@ -39,13 +39,14 @@ const send = async (
   method: ApiMethod,
   path: string,
   { query, body }: Omit<RequestOptions<z.ZodType>, "schema">,
+  accept = "application/json",
 ) => {
   const hasBody = body !== undefined;
 
   try {
     return await fetch(buildUrl(path, query), {
       method,
-      headers: buildHeaders(hasBody),
+      headers: buildHeaders(hasBody, accept),
       body: hasBody ? JSON.stringify(body) : undefined,
       credentials: "include",
     });
@@ -134,4 +135,34 @@ export const executeRequest = async <TSchema extends z.ZodType>(
   }
 
   return parseResponse(response, schema);
+};
+
+export type DownloadedFile = {
+  blob: Blob;
+  filename: string | null;
+};
+
+const FILENAME_PATTERN = /filename="?([^";]+)"?/;
+
+const readFilename = (response: Response) =>
+  response.headers.get("Content-Disposition")?.match(FILENAME_PATTERN)?.[1] ??
+  null;
+
+export const executeDownload = async (
+  path: string,
+  query: object | undefined,
+  accept: string,
+  onUnauthorized?: () => Promise<boolean>,
+): Promise<DownloadedFile> => {
+  let response = await send("GET", path, { query }, accept);
+
+  if (response.status === 401 && onUnauthorized && (await onUnauthorized())) {
+    response = await send("GET", path, { query }, accept);
+  }
+
+  if (!response.ok) {
+    throw await toApiError(response);
+  }
+
+  return { blob: await response.blob(), filename: readFilename(response) };
 };

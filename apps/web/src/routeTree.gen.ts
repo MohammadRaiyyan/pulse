@@ -15,6 +15,7 @@ import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAlertChannelsRouteImport } from './routes/_app/alert-channels'
 import { Route as AppIncidentsRouteImport } from './routes/_app/incidents'
+import { Route as AppReportsRouteImport } from './routes/_app/reports'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppTeamRouteImport } from './routes/_app/team'
 import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
@@ -54,6 +55,11 @@ const AppAlertChannelsRoute = AppAlertChannelsRouteImport.update({
 const AppIncidentsRoute = AppIncidentsRouteImport.update({
   id: '/incidents',
   path: '/incidents',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppReportsRoute = AppReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/verify-email': typeof VerifyEmailRoute
   '/alert-channels': typeof AppAlertChannelsRoute
   '/incidents': typeof AppIncidentsRoute
+  '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
   '/team': typeof AppTeamRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
@@ -142,6 +149,7 @@ export interface FileRoutesByTo {
   '/verify-email': typeof VerifyEmailRoute
   '/alert-channels': typeof AppAlertChannelsRoute
   '/incidents': typeof AppIncidentsRoute
+  '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
   '/team': typeof AppTeamRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
@@ -162,6 +170,7 @@ export interface FileRoutesById {
   '/verify-email': typeof VerifyEmailRoute
   '/_app/alert-channels': typeof AppAlertChannelsRoute
   '/_app/incidents': typeof AppIncidentsRoute
+  '/_app/reports': typeof AppReportsRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/team': typeof AppTeamRoute
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
@@ -183,6 +192,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/alert-channels'
     | '/incidents'
+    | '/reports'
     | '/settings'
     | '/team'
     | '/forgot-password'
@@ -201,6 +211,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/alert-channels'
     | '/incidents'
+    | '/reports'
     | '/settings'
     | '/team'
     | '/forgot-password'
@@ -220,6 +231,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/_app/alert-channels'
     | '/_app/incidents'
+    | '/_app/reports'
     | '/_app/settings'
     | '/_app/team'
     | '/_auth/forgot-password'
@@ -285,6 +297,13 @@ declare module '@tanstack/react-router' {
       path: '/incidents'
       fullPath: '/incidents'
       preLoaderRoute: typeof AppIncidentsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/reports': {
+      id: '/_app/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AppReportsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/settings': {
@@ -377,6 +396,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppAlertChannelsRoute: typeof AppAlertChannelsRoute
   AppIncidentsRoute: typeof AppIncidentsRoute
+  AppReportsRoute: typeof AppReportsRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppTeamRoute: typeof AppTeamRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -389,6 +409,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAlertChannelsRoute: AppAlertChannelsRoute,
   AppIncidentsRoute: AppIncidentsRoute,
+  AppReportsRoute: AppReportsRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppTeamRoute: AppTeamRoute,
   AppIndexRoute: AppIndexRoute,
