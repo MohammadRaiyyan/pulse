@@ -28,7 +28,7 @@ describe("webhooks", () => {
     expect(webhook.status).toBe(201);
     expect(webhook.body.status).toBe("pending");
     expect(webhook.body.ingestUrl).toMatch(
-      /^http:\/\/localhost:5173\/hooks\/stripe-events-[0-9a-f]{6}$/,
+      /^http:\/\/localhost:5173\/hooks\/stripe-events-[A-Za-z0-9_-]{22}$/,
     );
 
     const ingestPath = new URL(webhook.body.ingestUrl).pathname;

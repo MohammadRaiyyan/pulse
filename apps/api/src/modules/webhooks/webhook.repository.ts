@@ -3,6 +3,7 @@ import {
   count,
   desc,
   eq,
+  gt,
   gte,
   inArray,
   isNotNull,
@@ -169,14 +170,22 @@ export const listEvents = async (
   return { rows, total: totalRow?.total ?? 0 };
 };
 
-export const saveIncomingEvent = (slug: string, event: IncomingEvent) =>
+export const findWebhookIdBySlug = async (slug: string) => {
+  const [webhook] = await db
+    .select({ id: webhooks.id })
+    .from(webhooks)
+    .where(eq(webhooks.slug, slug));
+  return webhook?.id;
+};
+
+export const saveIncomingEvent = (webhookId: string, event: IncomingEvent) =>
   db.transaction(async (tx) => {
     const receivedAt = new Date();
 
     const [previous] = await tx
       .select({ id: webhooks.id, name: webhooks.name, status: webhooks.status })
       .from(webhooks)
-      .where(eq(webhooks.slug, slug))
+      .where(eq(webhooks.id, webhookId))
       .for("update");
 
     if (!previous) {
@@ -187,17 +196,56 @@ export const saveIncomingEvent = (slug: string, event: IncomingEvent) =>
       .insert(webhookEvents)
       .values({ webhookId: previous.id, receivedAt, ...event });
 
-    await tx
+    const [updated] = await tx
       .update(webhooks)
       .set({
         status: "active",
         lastReceivedAt: receivedAt,
         eventCount: sql`${webhooks.eventCount} + 1`,
       })
-      .where(eq(webhooks.id, previous.id));
+      .where(eq(webhooks.id, previous.id))
+      .returning({ eventCount: webhooks.eventCount });
 
-    return previous;
+    return { ...previous, eventCount: updated?.eventCount ?? 0 };
   });
+
+export const deleteEventsBeyondLimitForWebhook = async (
+  webhookId: string,
+  keep: number,
+) => {
+  const surplus = db
+    .select({ id: webhookEvents.id })
+    .from(webhookEvents)
+    .where(eq(webhookEvents.webhookId, webhookId))
+    .orderBy(desc(webhookEvents.receivedAt), desc(webhookEvents.id))
+    .offset(keep);
+
+  await db.delete(webhookEvents).where(inArray(webhookEvents.id, surplus));
+};
+
+export const deleteEventsBeyondLimit = async (keep: number) => {
+  const ranked = db
+    .select({
+      id: webhookEvents.id,
+      position:
+        sql<number>`row_number() over (partition by ${webhookEvents.webhookId} order by ${webhookEvents.receivedAt} desc, ${webhookEvents.id} desc)`.as(
+          "position",
+        ),
+    })
+    .from(webhookEvents)
+    .as("ranked");
+
+  const surplus = db
+    .select({ id: ranked.id })
+    .from(ranked)
+    .where(gt(ranked.position, keep));
+
+  await db.delete(webhookEvents).where(inArray(webhookEvents.id, surplus));
+};
+
+export const deleteEventsOlderThan = async (date: Date) => {
+  await db.delete(webhookEvents).where(lt(webhookEvents.receivedAt, date));
+};
 
 export const markOverdueWebhooksSilent = () =>
   db

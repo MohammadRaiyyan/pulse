@@ -25,10 +25,11 @@ test.describe("webhooks", () => {
     const webhookId = new URL(page.url()).pathname.split("/").pop() ?? "";
     const { ingestUrl } = (await ownerApi.get(`/webhooks/${webhookId}`)).body;
     await expect(page.getByText(ingestUrl)).toBeVisible();
+    expect(ingestUrl).toMatch(/\/hooks\/ci-pipeline-[a-z0-9-]+-[A-Za-z0-9_-]{22}$/);
 
     const sent = await fetch(ingestUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Build": "42" },
+      headers: { "Content-Type": "application/json", "X-Build": "42", "X-Api-Key": "build-secret" },
       body: '{"build":42,"result":"passed"}',
     });
     expect(sent.status).toBe(202);
@@ -40,6 +41,7 @@ test.describe("webhooks", () => {
     await expect(inspector.getByText('"passed"')).toBeVisible();
     await inspector.getByRole("tab", { name: "Headers" }).click();
     await expect(inspector.getByText("x-build: 42")).toBeVisible();
+    await expect(inspector.getByText("x-api-key: [redacted]")).toBeVisible();
     await inspector.getByRole("button", { name: /close/i }).click();
     await expect(inspector).toBeHidden();
 

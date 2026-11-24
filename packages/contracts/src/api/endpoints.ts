@@ -39,6 +39,7 @@ import { updateProfileSchema, userSchema } from "../users/index.ts";
 import {
   createWebhookSchema,
   updateWebhookSchema,
+  webhookEventListQuerySchema,
   webhookEventSchema,
   webhookSchema,
 } from "../webhooks/index.ts";
@@ -189,7 +190,7 @@ export const endpoints = {
     method: "GET",
     path: "/webhooks/:id/events",
     access: "webhook:read",
-    query: paginationQuerySchema,
+    query: webhookEventListQuerySchema,
     response: paginatedSchema(webhookEventSchema),
   }),
   testAlertChannel: defineEndpoint({

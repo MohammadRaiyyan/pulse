@@ -24,7 +24,10 @@ export const WebhookDetailLayout = ({
     >
       {details}
     </ContentSection>
-    <ContentSection title="Received events" description="Most recent first">
+    <ContentSection
+      title="Recent events"
+      description="Most recent first. Older events are removed automatically."
+    >
       {events}
     </ContentSection>
   </Page>

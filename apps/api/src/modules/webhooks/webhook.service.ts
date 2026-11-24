@@ -3,10 +3,11 @@ import type {
   CreateWebhookInput,
   PaginationQuery,
   UpdateWebhookInput,
+  WebhookEventListQuery,
 } from "@pulse/contracts";
 import { env } from "../../config/env.ts";
 import { cacheKeys, invalidate } from "../../lib/cache.ts";
-import { formatDuration } from "../../lib/dates.ts";
+import { daysAgo, formatDuration } from "../../lib/dates.ts";
 import { notFound } from "../../lib/errors.ts";
 import { logger } from "../../lib/logger.ts";
 import { toLimitOffset, toPage } from "../../lib/pagination.ts";
@@ -20,10 +21,14 @@ import {
 import {
   type IncomingEvent,
   clearSilenceIfNoLongerOverdue,
+  deleteEventsBeyondLimit,
+  deleteEventsBeyondLimitForWebhook,
+  deleteEventsOlderThan,
   deleteWebhook,
   findChannelIdsByWebhookIds,
   findChannelIdsForWebhook,
   findWebhook,
+  findWebhookIdBySlug,
   insertWebhook,
   listEvents,
   listWebhooks,
@@ -31,18 +36,22 @@ import {
   saveIncomingEvent,
   updateWebhook,
 } from "./webhook.repository.ts";
+import { redactHeaders } from "./header-redaction.ts";
 
 const LABEL = "Webhook";
+const SLUG_PREFIX_LENGTH = 24;
+const SLUG_TOKEN_BYTES = 16;
+const EVENT_TRIM_INTERVAL = 50;
 
-const toSlug = (name: string) => {
-  const base = name
+export const toSlug = (name: string) => {
+  const prefix = name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-    .slice(0, 40);
-  const suffix = randomBytes(3).toString("hex");
+    .slice(0, SLUG_PREFIX_LENGTH)
+    .replace(/(^-+|-+$)/g, "");
+  const token = randomBytes(SLUG_TOKEN_BYTES).toString("base64url");
 
-  return base ? `${base}-${suffix}` : suffix;
+  return prefix ? `${prefix}-${token}` : token;
 };
 
 const withPublicFields = (webhook: WebhookRow, alertChannelIds: string[]) => {
@@ -147,7 +156,7 @@ export const removeWebhook = async (id: string) => {
 
 export const getWebhookEvents = async (
   webhookId: string,
-  query: PaginationQuery,
+  query: WebhookEventListQuery,
 ) => {
   const { limit, offset } = toLimitOffset(query);
   const { rows, total } = await listEvents(webhookId, limit, offset);
@@ -158,10 +167,26 @@ export const receiveWebhookEvent = async (
   slug: string,
   event: IncomingEvent,
 ) => {
-  const webhook = await saveIncomingEvent(slug, event);
+  const webhookId = await findWebhookIdBySlug(slug);
+
+  if (!webhookId) {
+    throw notFound(LABEL);
+  }
+
+  const webhook = await saveIncomingEvent(webhookId, {
+    ...event,
+    headers: redactHeaders(event.headers),
+  });
 
   if (!webhook) {
     throw notFound(LABEL);
+  }
+
+  if (webhook.eventCount % EVENT_TRIM_INTERVAL === 0) {
+    await deleteEventsBeyondLimitForWebhook(
+      webhook.id,
+      env.WEBHOOK_MAX_EVENTS_PER_ENDPOINT,
+    );
   }
 
   if (webhook.status !== "active") {
@@ -204,4 +229,9 @@ export const detectSilentWebhooks = async () => {
   }
 
   await invalidate(cacheKeys.dashboardSummary);
+};
+
+export const pruneWebhookEvents = async () => {
+  await deleteEventsOlderThan(daysAgo(env.WEBHOOK_EVENT_RETENTION_DAYS));
+  await deleteEventsBeyondLimit(env.WEBHOOK_MAX_EVENTS_PER_ENDPOINT);
 };
