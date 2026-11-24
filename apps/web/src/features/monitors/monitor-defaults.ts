@@ -12,4 +12,7 @@ export const defaultMonitorInput: CreateMonitorInput = {
   expectedStatusCode: 200,
   failureThreshold: DEFAULT_FAILURE_THRESHOLD,
   alertChannelIds: [],
+  requestHeaders: [],
+  requestBody: null,
+  requestContentType: null,
 };

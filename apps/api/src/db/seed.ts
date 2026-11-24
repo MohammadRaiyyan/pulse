@@ -2,6 +2,7 @@ import type {
   CheckOutcome,
   HttpMethod,
   MonitorStatus,
+  RequestContentType,
   Role,
 } from "@pulse/contracts";
 import { sql as rawSql } from "drizzle-orm";
@@ -17,6 +18,7 @@ import {
   invitations,
   monitorAlertChannels,
   monitors,
+  type StoredHeader,
   users,
   webhookAlertChannels,
   webhookEvents,
@@ -50,7 +52,17 @@ type MonitorSeed = {
   baseResponseMs: number;
   outcomeAt: (index: number) => CheckOutcome;
   channelIndexes: number[];
+  requestHeaders?: StoredHeader[];
+  requestBody?: string;
+  requestContentType?: RequestContentType;
 };
+
+const SOAP_PING_BODY = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <Ping xmlns="https://legacy.pulse.invalid/" />
+  </soap:Body>
+</soap:Envelope>`;
 
 const demoUsers: { name: string; email: string; role: Role }[] = [
   { name: "Olivia Owner", email: "owner@pulse.dev", role: "owner" },
@@ -71,6 +83,7 @@ const monitorSeeds: MonitorSeed[] = [
     baseResponseMs: 120,
     outcomeAt: (index) => (index === 40 ? "down" : "up"),
     channelIndexes: [0, 1],
+    requestHeaders: [{ name: "Accept", value: "application/json", secret: false }],
   },
   {
     name: "Payments service",
@@ -95,6 +108,9 @@ const monitorSeeds: MonitorSeed[] = [
     baseResponseMs: 2_400,
     outcomeAt: (index) => (index < 6 ? "down" : "up"),
     channelIndexes: [1],
+    requestHeaders: [{ name: "SOAPAction", value: "Ping", secret: false }],
+    requestBody: SOAP_PING_BODY,
+    requestContentType: "text/xml",
   },
   {
     name: "Docs site",
@@ -234,6 +250,9 @@ const seedMonitor = async (seed: MonitorSeed, channelIds: string[]) => {
       intervalSeconds: seed.intervalSeconds,
       timeoutMs: seed.timeoutMs,
       expectedStatusCode: 200,
+      requestHeaders: seed.requestHeaders ?? [],
+      requestBody: seed.requestBody ?? null,
+      requestContentType: seed.requestContentType ?? null,
       isPaused: seed.isPaused,
       consecutiveFailures: seed.isPaused
         ? 0

@@ -14,18 +14,31 @@ import {
   renameIncidentSource,
   resolveIncidentForSource,
 } from "../incidents/incident.service.ts";
+import type { MonitorRow } from "../../models/index.ts";
 import {
   deleteMonitor,
   findChannelIdsByMonitorIds,
   findChannelIdsForMonitor,
   findMonitor,
+  findMonitorRequestConfig,
   insertMonitorWithinLimit,
   listChecks,
   listMonitors,
   updateMonitor,
 } from "./monitor.repository.ts";
+import {
+  resolveRequestConfig,
+  toPublicHeaders,
+  touchesRequestConfig,
+} from "./request-config.ts";
 
 const LABEL = "Monitor";
+
+const withPublicFields = (monitor: MonitorRow, alertChannelIds: string[]) => ({
+  ...monitor,
+  requestHeaders: toPublicHeaders(monitor.requestHeaders),
+  alertChannelIds,
+});
 
 export const getMonitors = async (query: MonitorListQuery) => {
   const { limit, offset } = toLimitOffset(query);
@@ -34,10 +47,9 @@ export const getMonitors = async (query: MonitorListQuery) => {
     rows.map((row) => row.id),
   );
 
-  const items = rows.map((monitor) => ({
-    ...monitor,
-    alertChannelIds: channelIds.get(monitor.id) ?? [],
-  }));
+  const items = rows.map((monitor) =>
+    withPublicFields(monitor, channelIds.get(monitor.id) ?? []),
+  );
 
   return toPage(items, total, query);
 };
@@ -52,12 +64,14 @@ export const getMonitor = async (id: string) => {
     throw notFound(LABEL);
   }
 
-  return { ...monitor, alertChannelIds };
+  return withPublicFields(monitor, alertChannelIds);
 };
 
 export const createMonitor = async (input: CreateMonitorInput) => {
+  const { requestHeaders = [], ...fields } = input;
+  const request = resolveRequestConfig({ ...fields, requestHeaders }, undefined);
   const monitor = await insertMonitorWithinLimit(
-    input,
+    { ...fields, ...request },
     env.MAX_MONITORS_PER_WORKSPACE,
   );
 
@@ -70,14 +84,31 @@ export const createMonitor = async (input: CreateMonitorInput) => {
   await invalidate(cacheKeys.dashboardSummary);
   publishChange({ type: "monitor.updated", id: monitor.id });
 
-  return { ...monitor, alertChannelIds: input.alertChannelIds };
+  return withPublicFields(monitor, input.alertChannelIds);
+};
+
+const findExistingRequestConfig = async (id: string) => {
+  const config = await findMonitorRequestConfig(id);
+
+  if (!config) {
+    throw notFound(LABEL);
+  }
+
+  return config;
 };
 
 export const updateMonitorById = async (
   id: string,
   input: UpdateMonitorInput,
 ) => {
-  const monitor = await updateMonitor(id, input);
+  const { requestHeaders, ...fields } = input;
+  const request = touchesRequestConfig(input)
+    ? resolveRequestConfig(
+        { ...fields, requestHeaders },
+        await findExistingRequestConfig(id),
+      )
+    : {};
+  const monitor = await updateMonitor(id, { ...fields, ...request });
 
   if (!monitor) {
     throw notFound(LABEL);
@@ -100,7 +131,7 @@ export const updateMonitorById = async (
 
   await invalidate(cacheKeys.dashboardSummary);
 
-  return { ...monitor, alertChannelIds };
+  return withPublicFields(monitor, alertChannelIds);
 };
 
 export const removeMonitor = async (id: string) => {

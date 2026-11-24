@@ -9,6 +9,13 @@ import {
   percentSchema,
   timestampSchema,
 } from "../common/index.ts";
+import {
+  checkRequestBody,
+  monitorHeaderSchema,
+  monitorHeadersInputSchema,
+  requestBodySchema,
+  requestContentTypeSchema,
+} from "./request.ts";
 
 export const httpMethodSchema = z.enum([
   "GET",
@@ -39,7 +46,7 @@ export const MONITOR_LIMITS = {
 
 export const DEFAULT_FAILURE_THRESHOLD = 2;
 
-export const createMonitorSchema = z.object({
+const monitorFieldsSchema = z.object({
   name: nameSchema,
   url: httpUrlSchema,
   method: httpMethodSchema,
@@ -48,21 +55,31 @@ export const createMonitorSchema = z.object({
   expectedStatusCode: boundedIntSchema(MONITOR_LIMITS.statusCode),
   failureThreshold: boundedIntSchema(MONITOR_LIMITS.failureThreshold).optional(),
   alertChannelIds: z.array(idSchema),
+  requestHeaders: monitorHeadersInputSchema.optional(),
+  requestBody: requestBodySchema.nullable().optional(),
+  requestContentType: requestContentTypeSchema.nullable().optional(),
 });
+
+export const createMonitorSchema = monitorFieldsSchema.superRefine(
+  checkRequestBody,
+);
 
 export type CreateMonitorInput = z.infer<typeof createMonitorSchema>;
 
-export const updateMonitorSchema = createMonitorSchema.partial().extend({
+export const updateMonitorSchema = monitorFieldsSchema.partial().extend({
   isPaused: z.boolean().optional(),
 });
 
 export type UpdateMonitorInput = z.infer<typeof updateMonitorSchema>;
 
-export const monitorSchema = createMonitorSchema.extend({
+export const monitorSchema = monitorFieldsSchema.extend({
   id: idSchema,
   status: monitorStatusSchema,
   isPaused: z.boolean(),
   failureThreshold: boundedIntSchema(MONITOR_LIMITS.failureThreshold),
+  requestHeaders: z.array(monitorHeaderSchema),
+  requestBody: z.string().nullable(),
+  requestContentType: requestContentTypeSchema.nullable(),
   consecutiveFailures: nonNegativeIntSchema,
   lastCheckedAt: timestampSchema.nullable(),
   lastResponseTimeMs: nonNegativeIntSchema.nullable(),
