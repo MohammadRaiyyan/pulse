@@ -1,8 +1,14 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createSafeFetch, isPublicAddress } from "../../lib/outbound-http.ts";
 import type { MonitorRow } from "../../models/index.ts";
-import { runHttpCheck } from "./http-check.ts";
+import { runHttpCheck as runCheck } from "./http-check.ts";
+
+const localFetch = createSafeFetch({ isAllowedAddress: () => true });
+const publicOnlyFetch = createSafeFetch({ isAllowedAddress: isPublicAddress });
+
+const runHttpCheck = (monitor: MonitorRow) => runCheck(monitor, localFetch);
 
 let baseUrl = "";
 
@@ -64,5 +70,12 @@ describe("runHttpCheck", () => {
     const result = await runHttpCheck(monitorFor("/slow", 300));
     expect(result.outcome).toBe("down");
     expect(result.errorMessage).toBe("Timed out after 300 ms");
+  });
+
+  it("reports a blocked private target without internal details", async () => {
+    const result = await runCheck(monitorFor("/ok"), publicOnlyFetch);
+    expect(result.outcome).toBe("down");
+    expect(result.statusCode).toBeNull();
+    expect(result.errorMessage).toBe("Blocked: private network address");
   });
 });

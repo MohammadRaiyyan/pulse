@@ -24,10 +24,12 @@
     "express": "catalog:",
     "helmet": "catalog:",
     "ioredis": "catalog:",
+    "ipaddr.js": "catalog:",
     "jose": "catalog:",
     "pino": "catalog:",
     "pino-http": "catalog:",
     "postgres": "catalog:",
+    "undici": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

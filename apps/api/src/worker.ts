@@ -1,4 +1,5 @@
 import { Worker } from "bullmq";
+import { env } from "./config/env.ts";
 import { sql } from "./db/client.ts";
 import { processAlertJob } from "./jobs/processors/alerts.processor.ts";
 import { processCheckJob } from "./jobs/processors/checks.processor.ts";
@@ -13,7 +14,7 @@ await registerSchedulers();
 const workers = [
   new Worker(QUEUE_NAMES.checks, processCheckJob, {
     connection: createRedisConnection(),
-    concurrency: 20,
+    concurrency: env.CHECK_WORKER_CONCURRENCY,
   }),
   new Worker(QUEUE_NAMES.alerts, processAlertJob, {
     connection: createRedisConnection(),

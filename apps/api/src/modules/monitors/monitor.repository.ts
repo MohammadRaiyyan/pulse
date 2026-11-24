@@ -238,3 +238,8 @@ export const saveCheckResult = (
 export const deleteChecksOlderThan = async (date: Date) => {
   await db.delete(checkResults).where(lt(checkResults.checkedAt, date));
 };
+
+export const countMonitors = async () => {
+  const [row] = await db.select({ total: count() }).from(monitors);
+  return row?.total ?? 0;
+};

@@ -4,14 +4,16 @@ import type {
   PaginationQuery,
   UpdateMonitorInput,
 } from "@pulse/contracts";
+import { env } from "../../config/env.ts";
 import { cacheKeys, invalidate } from "../../lib/cache.ts";
-import { notFound } from "../../lib/errors.ts";
+import { conflict, notFound } from "../../lib/errors.ts";
 import { toLimitOffset, toPage } from "../../lib/pagination.ts";
 import {
   removeIncidentsForSource,
   renameIncidentSource,
 } from "../incidents/incident.service.ts";
 import {
+  countMonitors,
   deleteMonitor,
   findChannelIdsByMonitorIds,
   findChannelIdsForMonitor,
@@ -53,6 +55,12 @@ export const getMonitor = async (id: string) => {
 };
 
 export const createMonitor = async (input: CreateMonitorInput) => {
+  if ((await countMonitors()) >= env.MAX_MONITORS_PER_WORKSPACE) {
+    throw conflict(
+      `Monitor limit reached. This workspace can have up to ${env.MAX_MONITORS_PER_WORKSPACE} monitors.`,
+    );
+  }
+
   const monitor = await insertMonitor(input);
   await invalidate(cacheKeys.dashboardSummary);
 
