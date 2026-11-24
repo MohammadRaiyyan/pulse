@@ -1,15 +1,16 @@
+import { env } from "../config/env.ts";
 import { checksQueue, maintenanceQueue } from "./queues.ts";
 
 export const registerSchedulers = async () => {
   await checksQueue.upsertJobScheduler(
     "dispatch-due-checks",
-    { every: 15_000 },
+    { every: env.CHECK_DISPATCH_INTERVAL_MS },
     { name: "dispatch-due-checks" },
   );
 
   await maintenanceQueue.upsertJobScheduler(
     "detect-silent-webhooks",
-    { every: 60_000 },
+    { every: env.SILENCE_CHECK_INTERVAL_MS },
     { name: "detect-silent-webhooks" },
   );
 

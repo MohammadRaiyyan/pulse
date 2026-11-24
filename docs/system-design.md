@@ -72,7 +72,7 @@ something breaks, tells the team, and closes the incident when the problem goes 
 | NFR5  | Reliability      | Failed alert deliveries are retried; one broken channel does not block others         | One job per channel, 5 attempts with exponential backoff                         |
 | NFR6  | Durability       | Schedules and queued work survive restarts                                            | Stored in Redis by BullMQ, not in process memory                                 |
 | NFR7  | Security         | Passwords and tokens are safe even if the database leaks                              | Argon2id passwords, SHA-256 hashed refresh and reset tokens, HMAC invite tokens  |
-| NFR8  | Security         | Stolen refresh tokens are detected                                                    | Rotation on every use with family revocation on reuse                            |
+| NFR8  | Security         | Stolen tokens are detected and sign-out takes effect at once                          | Refresh rotation with family revocation on reuse; access tokens issued before a sign-out-everywhere or password change are rejected |
 | NFR9  | Security         | Brute force and abuse are limited                                                     | Redis rate limits per email, IP and webhook slug                                 |
 | NFR10 | Security         | Every rule is enforced on the server                                                  | `requirePermission` on every route; record rules in services and SQL             |
 | NFR11 | Security         | The server cannot be used to reach internal networks                                  | Outbound URL guard blocks private ranges in production                           |

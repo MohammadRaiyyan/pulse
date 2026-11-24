@@ -16,6 +16,7 @@ import {
   verifyPassword,
 } from "../../security/passwords.ts";
 import { REFRESH_TOKEN_TTL_MS } from "../../security/refresh-cookie.ts";
+import { rejectAccessTokensIssuedBeforeNow } from "../../security/session-revocation.ts";
 import { generateToken, hashToken } from "../../security/tokens.ts";
 import {
   type UserRecord,
@@ -153,6 +154,7 @@ export const logout = async (refreshToken: string | undefined) => {
 
 export const logoutEverywhere = async (userId: string) => {
   await revokeAllUserSessions(userId);
+  await rejectAccessTokensIssuedBeforeNow(userId);
 };
 
 export const requestPasswordReset = async (email: string) => {
@@ -193,5 +195,6 @@ export const resetPassword = async (input: ResetPasswordInput) => {
     token.userId,
     await hashPassword(input.password),
   );
+  await rejectAccessTokensIssuedBeforeNow(token.userId);
   await forgetCachedUser(token.userId);
 };

@@ -1,6 +1,8 @@
 import { pino } from "pino";
 import { env, isProduction } from "../config/env.ts";
 
+const usePrettyLogs = !isProduction && process.stdout.isTTY;
+
 export const logger = pino({
   level: env.LOG_LEVEL,
   redact: [
@@ -8,7 +10,7 @@ export const logger = pino({
     "req.headers.cookie",
     'res.headers["set-cookie"]',
   ],
-  transport: isProduction
-    ? undefined
-    : { target: "pino-pretty", options: { colorize: true } },
+  transport: usePrettyLogs
+    ? { target: "pino-pretty", options: { colorize: true } }
+    : undefined,
 });

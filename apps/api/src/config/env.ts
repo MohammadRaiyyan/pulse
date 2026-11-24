@@ -17,6 +17,9 @@ const envSchema = z.object({
   GITHUB_CLIENT_SECRET: z.string().default(""),
   GOOGLE_CLIENT_ID: z.string().default(""),
   GOOGLE_CLIENT_SECRET: z.string().default(""),
+  API_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
+  CHECK_DISPATCH_INTERVAL_MS: z.coerce.number().int().positive().default(15_000),
+  SILENCE_CHECK_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
 });
 
 const result = envSchema.safeParse(process.env);

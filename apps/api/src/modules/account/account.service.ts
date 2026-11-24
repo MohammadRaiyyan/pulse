@@ -5,6 +5,7 @@ import type {
 } from "@pulse/contracts";
 import { badRequest, conflict, notFound } from "../../lib/errors.ts";
 import { hashPassword, verifyPassword } from "../../security/passwords.ts";
+import { rejectAccessTokensIssuedBeforeNow } from "../../security/session-revocation.ts";
 import { startSession } from "../auth/auth.service.ts";
 import { revokeAllUserSessions } from "../auth/session.repository.ts";
 import {
@@ -60,6 +61,7 @@ export const changePassword = async (
   }
 
   await revokeAllUserSessions(user.id);
+  await rejectAccessTokensIssuedBeforeNow(user.id);
 
   return startSession(updated);
 };

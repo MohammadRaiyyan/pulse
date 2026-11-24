@@ -2,9 +2,9 @@ import { EkgTrace } from "@/components/brand/ekg-trace";
 import { Brand } from "@/components/brand/brand";
 
 const highlights = [
-  "HTTP checks from every 30 seconds",
-  "Alerts when a webhook goes quiet",
-  "Role-based access for the whole team",
+  "Uptime checks as often as every 30 seconds",
+  "Automatic incidents and alerts when a check fails",
+  "Silence detection for the webhooks you depend on",
 ];
 
 export const AuthShowcase = () => (

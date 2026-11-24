@@ -1,1 +1,2 @@
 CREATE DATABASE pulse_test;
+CREATE DATABASE pulse_e2e;

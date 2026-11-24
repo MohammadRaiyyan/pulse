@@ -522,6 +522,15 @@ response time does not reveal which emails have accounts. The error message is t
 The frontend calls refresh on page load and whenever a request returns `401`, and it de-duplicates concurrent refresh
 calls, so normal use never trips reuse detection.
 
+### Ending sessions immediately
+
+An access token is valid for 15 minutes and is never looked up in the database, so revoking refresh tokens alone would
+leave other devices signed in until their access token expires. "Sign out everywhere", a password change and a password
+reset therefore also record a timestamp in Redis (`auth:sessions-revoked-at:<userId>`, kept for 15 minutes,
+`src/security/session-revocation.ts`). Every access token carries the millisecond it was issued (`issuedAtMs`), and
+`requireAuth` rejects tokens issued before that timestamp. The device that made the change gets a fresh refresh cookie
+in the same response, so it recovers on its next request through the normal 401-then-refresh path.
+
 ### The cookie
 
 `src/security/refresh-cookie.ts` sets `httpOnly` (JavaScript cannot read it), `sameSite: "lax"` (not sent on cross-site
@@ -651,7 +660,8 @@ webhooks get `{ event, message, incident, sentAt }`. Email is written to the wor
 | Dashboard summary | `cache:dashboard:summary` | 30 s | Monitors, webhooks or incidents change, or a check runs   |
 | Signed-in user    | `cache:user:<id>`         | 60 s | Role, name or email changes, a password reset, or the user is removed |
 
-The dashboard is polled by every open tab, and the user lookup runs on every request, so both are read far more often
+The dashboard summary is fetched on every page (the header status pill and the sidebar badge use it), and the user
+lookup runs on every request, so both are read far more often
 than they change. The TTL is a safety net: if an invalidation is ever missed, the data heals itself within seconds.
 
 Do not cache things where stale data is dangerous, such as whether a session is revoked.
@@ -727,6 +737,9 @@ The flow (`src/modules/oauth/`):
 
 ## 14. Testing
 
+There are two layers. This section covers the backend's own tests; the end-to-end suite in `e2e/` (the running API and
+worker, plus the browser) is described in the [README](../README.md#end-to-end-tests).
+
 ```bash
 pnpm --filter api test
 ```
@@ -777,6 +790,8 @@ Already handled:
 - `helmet` security headers, `cors` locked to `APP_URL` with credentials, `x-powered-by` off.
 - JSON bodies limited to 100 KB, webhook bodies to 1 MB.
 - Structured JSON logs (`pino`) with `Authorization`, cookies and `Set-Cookie` redacted; request logging via `pino-http`.
+  Logs are pretty-printed only in an interactive terminal; when output is piped (containers, log collectors, the E2E
+  suite) they are one JSON object per line.
 - Generic error messages in production; stack traces only in logs.
 - `secure` cookies in production.
 - Graceful shutdown on `SIGTERM` for both processes: stop taking work, finish in-flight work, close connections.

@@ -1,6 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "e2e"
 
 catalog:
   typescript: ^7.0.2
@@ -56,6 +57,7 @@ catalog:
   helmet: ^8.3.0
   cors: ^2.8.6
   "@types/cors": ^2.8.19
+  "@playwright/test": 1.65.0
 
 minimumReleaseAgeExclude:
   - "@tanstack/query-core@5.108.0"

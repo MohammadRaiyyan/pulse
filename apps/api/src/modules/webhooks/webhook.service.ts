@@ -19,6 +19,7 @@ import {
 } from "../incidents/incident.service.ts";
 import {
   type IncomingEvent,
+  clearSilenceIfNoLongerOverdue,
   deleteWebhook,
   findChannelIdsByWebhookIds,
   findChannelIdsForWebhook,
@@ -113,7 +114,24 @@ export const updateWebhookById = async (
   const alertChannelIds =
     input.alertChannelIds ?? (await findChannelIdsForWebhook(id));
 
-  return withPublicFields(webhook, alertChannelIds);
+  const recovered =
+    input.expectedIntervalSeconds !== undefined
+      ? await clearSilenceIfNoLongerOverdue(id)
+      : undefined;
+
+  if (!recovered) {
+    return withPublicFields(webhook, alertChannelIds);
+  }
+
+  await resolveIncidentForSource({
+    type: "webhook",
+    id,
+    name: webhook.name,
+    alertChannelIds,
+  });
+  await invalidate(cacheKeys.dashboardSummary);
+
+  return withPublicFields({ ...webhook, status: recovered.status }, alertChannelIds);
 };
 
 export const removeWebhook = async (id: string) => {

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { env } from "./config/env.ts";
 import { byIp, rateLimit } from "./middleware/rate-limit.ts";
 import { accountRouter } from "./modules/account/account.routes.ts";
 import { alertChannelRouter } from "./modules/alert-channels/alert-channel.routes.ts";
@@ -14,7 +15,7 @@ import { webhookRouter } from "./modules/webhooks/webhook.routes.ts";
 
 const apiLimit = rateLimit({
   name: "api",
-  limit: 300,
+  limit: env.API_RATE_LIMIT_PER_MINUTE,
   windowSeconds: 60,
   key: byIp,
 });

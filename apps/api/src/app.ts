@@ -25,7 +25,7 @@ export const createApp = () => {
 
   app.use("/hooks", ingestRouter);
 
-  app.use(cors({ origin: env.APP_URL, credentials: true }));
+  app.use(cors({ origin: [env.APP_URL], credentials: true }));
   app.use(express.json({ limit: "100kb" }));
   app.use(cookieParser());
   app.use("/api", apiRouter);

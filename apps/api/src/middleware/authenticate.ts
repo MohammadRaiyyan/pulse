@@ -2,6 +2,7 @@ import { type Permission, hasPermission } from "@pulse/contracts";
 import type { Request, RequestHandler } from "express";
 import { forbidden, unauthorized } from "../lib/errors.ts";
 import { verifyAccessToken } from "../security/access-token.ts";
+import { isAccessTokenRevoked } from "../security/session-revocation.ts";
 import { getCachedUser } from "../modules/users/user.service.ts";
 
 const BEARER_PREFIX = "Bearer ";
@@ -18,8 +19,9 @@ const readBearerToken = (req: Request) => {
 
 export const authenticateRequest = async (req: Request) => {
   const token = readBearerToken(req);
-  const userId = token ? await verifyAccessToken(token) : null;
-  const user = userId ? await getCachedUser(userId) : null;
+  const claims = token ? await verifyAccessToken(token) : null;
+  const isRevoked = claims ? await isAccessTokenRevoked(claims) : true;
+  const user = claims && !isRevoked ? await getCachedUser(claims.userId) : null;
 
   if (!user) {
     throw unauthorized("Access token is missing or expired");

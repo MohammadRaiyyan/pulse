@@ -42,14 +42,16 @@ export const NavMain = () => {
   );
 
   return (
-    <SidebarGroup>
-      <SidebarGroupContent>
-        <SidebarMenu className="gap-0.5">
-          {visibleItems.map((item) => (
-            <NavLink key={item.title} item={item} />
-          ))}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
+    <nav aria-label="Main">
+      <SidebarGroup>
+        <SidebarGroupContent>
+          <SidebarMenu className="gap-0.5">
+            {visibleItems.map((item) => (
+              <NavLink key={item.title} item={item} />
+            ))}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </nav>
   );
 };

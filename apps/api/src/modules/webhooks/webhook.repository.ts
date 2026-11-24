@@ -3,10 +3,13 @@ import {
   count,
   desc,
   eq,
+  gte,
   inArray,
   isNotNull,
+  isNull,
   lt,
   ne,
+  or,
   sql,
 } from "drizzle-orm";
 import { type Transaction, db } from "../../db/client.ts";
@@ -215,3 +218,27 @@ export const markOverdueWebhooksSilent = () =>
       name: webhooks.name,
       expectedIntervalSeconds: webhooks.expectedIntervalSeconds,
     });
+
+export const clearSilenceIfNoLongerOverdue = async (id: string) => {
+  const [webhook] = await db
+    .update(webhooks)
+    .set({
+      status: sql`case when ${webhooks.lastReceivedAt} is null then 'pending'::webhook_status else 'active'::webhook_status end`,
+    })
+    .where(
+      and(
+        eq(webhooks.id, id),
+        eq(webhooks.status, "silent"),
+        or(
+          isNull(webhooks.expectedIntervalSeconds),
+          gte(
+            sql`coalesce(${webhooks.lastReceivedAt}, ${webhooks.createdAt}) + make_interval(secs => ${webhooks.expectedIntervalSeconds})`,
+            sql`now()`,
+          ),
+        ),
+      ),
+    )
+    .returning({ status: webhooks.status });
+
+  return webhook;
+};

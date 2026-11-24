@@ -143,6 +143,9 @@ The event appears on the endpoint's detail page.
 | `INVITE_SECRET`                             | Yes      | At least 32 characters. Signs invitation links                              |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`  | No       | Enables "Continue with GitHub"                                              |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`  | No       | Enables "Continue with Google"                                              |
+| `API_RATE_LIMIT_PER_MINUTE`                 | No       | Requests per minute per IP across the API. Default `300`                    |
+| `CHECK_DISPATCH_INTERVAL_MS`                | No       | How often the worker looks for due checks. Default `15000`                  |
+| `SILENCE_CHECK_INTERVAL_MS`                 | No       | How often the worker looks for silent webhooks. Default `60000`             |
 
 The API validates these at startup and exits with a message naming any variable that is missing or invalid.
 
@@ -168,7 +171,8 @@ Run from the repository root:
 | ------------------ | --------------------------------------------------- |
 | `pnpm dev`         | Starts the API and the web app in watch mode        |
 | `pnpm build`       | Builds the web app for production                   |
-| `pnpm test`        | Runs the backend test suite                         |
+| `pnpm test`        | Runs the backend unit and integration tests         |
+| `pnpm test:e2e`    | Runs the end-to-end suite (backend and browser)     |
 | `pnpm typescript`  | Type-checks every package                           |
 | `pnpm lint`        | Lints the repository with oxlint                    |
 
@@ -187,13 +191,39 @@ Backend-specific, run with `pnpm --filter api <script>`:
 
 ## Testing
 
+Pulse has two test layers. Both need PostgreSQL and Redis running (`docker compose up -d`).
+
+### Backend unit and integration tests
+
 ```bash
 pnpm test
 ```
 
-The tests run against a separate `pulse_test` database and Redis database 1, so they never touch development data. The
-Postgres container creates `pulse_test` the first time it starts. Most tests send real HTTP requests to the API, which
-covers routing, authentication, permissions, validation, database constraints and error responses together.
+Vitest runs against a separate `pulse_test` database and Redis database 1, so it never touches development data. Most
+tests send real HTTP requests to an in-process API, which covers routing, authentication, permissions, validation,
+database constraints and error responses together.
+
+### End-to-end tests
+
+```bash
+pnpm --filter e2e install-browsers   # once, downloads Chromium
+pnpm test:e2e
+```
+
+The Playwright suite in `e2e/` starts its own API, worker and web app on ports 3100 and 5174 against a `pulse_e2e`
+database and Redis database 2, then seeds demo data. It has two projects:
+
+| Project | Command                        | What it covers                                                                 |
+| ------- | ------------------------------ | ------------------------------------------------------------------------------ |
+| `api`   | `pnpm --filter e2e e2e:api`    | The running API and worker over HTTP: auth and token rotation, permissions, the check-to-incident-to-alert pipeline, webhook ingest and silence detection, invitations |
+| `ui`    | `pnpm --filter e2e e2e:ui`     | Every page as each role in Chromium: sign-in, sign-up, password reset, monitors, incidents, alert channels, webhooks, team, settings |
+
+Alert delivery is verified for real: tests point an alert channel at a Pulse webhook endpoint and assert that the
+worker's alert arrives as an event. Failed tests keep a trace, screenshot and video; open them with
+`pnpm --filter e2e report`.
+
+The Postgres container creates `pulse_test` and `pulse_e2e` on first start. If your volume is older, create them once:
+`docker compose exec postgres createdb -U pulse pulse_e2e`.
 
 ## API conventions
 

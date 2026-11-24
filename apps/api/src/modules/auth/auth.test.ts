@@ -113,6 +113,41 @@ describe("auth", () => {
     ]);
   });
 
+  it("ends existing access tokens immediately on sign out everywhere", async () => {
+    const { token } = await registerUser("Owner", "owner@test.dev");
+
+    expect((await request("/api/monitors", { token })).status).toBe(200);
+
+    const signOut = await request("/api/auth/logout-all", { method: "POST", token });
+    expect(signOut.status).toBe(204);
+
+    expect((await request("/api/monitors", { token })).status).toBe(401);
+  });
+
+  it("keeps the current device signed in after a password change but ends old tokens", async () => {
+    const { token } = await registerUser("Owner", "owner@test.dev");
+
+    const changed = await request("/api/me/password", {
+      method: "POST",
+      token,
+      body: { currentPassword: "password123", newPassword: "password456" },
+    });
+    expect(changed.status).toBe(204);
+    expect(changed.refreshCookie).toBeDefined();
+
+    expect((await request("/api/monitors", { token })).status).toBe(401);
+
+    const refreshed = await request("/api/auth/refresh", { method: "POST", cookie: changed.refreshCookie });
+    expect(refreshed.status).toBe(200);
+    expect((await request("/api/monitors", { token: refreshed.body.accessToken })).status).toBe(200);
+
+    const oldPassword = await request("/api/auth/login", {
+      method: "POST",
+      body: { email: "owner@test.dev", password: "password123" },
+    });
+    expect(oldPassword.status).toBe(401);
+  });
+
   it("rate limits repeated logins with a Retry-After header", async () => {
     for (let index = 0; index < 5; index += 1) {
       expect((await attemptLogin()).status).toBe(401);
