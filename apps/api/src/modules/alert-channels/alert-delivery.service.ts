@@ -1,6 +1,6 @@
 import type { AlertEvent, AlertJobData } from "../../jobs/queues.ts";
 import { logger } from "../../lib/logger.ts";
-import { assertPublicUrl } from "../../lib/outbound-url.ts";
+import { safeFetch } from "../../lib/outbound-http.ts";
 import {
   type IncidentRecord,
   findIncident,
@@ -29,16 +29,14 @@ const buildMessage = (
 };
 
 const postJson = async (url: string, body: unknown) => {
-  await assertPublicUrl(url);
-
-  const response = await fetch(url, {
+  const response = await safeFetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "User-Agent": "PulseAlerts/1.0",
     },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
+    timeoutMs: DELIVERY_TIMEOUT_MS,
   });
 
   if (!response.ok) {

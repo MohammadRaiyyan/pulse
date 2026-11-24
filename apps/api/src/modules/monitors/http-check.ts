@@ -1,4 +1,4 @@
-import { assertPublicUrl } from "../../lib/outbound-url.ts";
+import { safeFetch } from "../../lib/outbound-http.ts";
 import type { MonitorRow } from "../../models/index.ts";
 import type { CheckMeasurement } from "./monitor.repository.ts";
 
@@ -25,12 +25,9 @@ export const runHttpCheck = async (
   const startedAt = performance.now();
 
   try {
-    await assertPublicUrl(monitor.url);
-
-    const response = await fetch(monitor.url, {
+    const response = await safeFetch(monitor.url, {
       method: monitor.method,
-      redirect: "follow",
-      signal: AbortSignal.timeout(monitor.timeoutMs),
+      timeoutMs: monitor.timeoutMs,
       headers: { "User-Agent": "PulseMonitor/1.0" },
     });
     await response.body?.cancel();
