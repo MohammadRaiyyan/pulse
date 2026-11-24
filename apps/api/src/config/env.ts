@@ -63,6 +63,27 @@ const envSchema = z.object({
 type Env = z.infer<typeof envSchema>;
 
 const productionRules = (values: Env, context: z.RefinementCtx) => {
+  MAIL_TRANSPORT: z.enum(["smtp", "file"]).default("smtp"),
+  MAIL_FILE: z.string().default(""),
+  MAIL_FROM: z.string().default(""),
+  SMTP_HOST: z.string().default(""),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: z.stringbool().default(false),
+  SMTP_USER: z.string().default(""),
+  SMTP_PASSWORD: z.string().default(""),
+});
+
+const requireMailSettings = (
+  values: z.infer<typeof envSchema>,
+  context: z.RefinementCtx,
+) => {
+  const missing = (variable: string, message: string) =>
+    context.addIssue({ code: "custom", path: [variable], message });
+
+  if (values.MAIL_TRANSPORT === "file" && !values.MAIL_FILE) {
+    missing("MAIL_FILE", "MAIL_FILE is required when MAIL_TRANSPORT is file");
+  }
+
   if (values.NODE_ENV !== "production") {
     return;
   }
@@ -90,6 +111,20 @@ export const parseEnv = (source: Record<string, string | undefined>) =>
   envSchema.superRefine(productionRules).safeParse(source);
 
 const result = parseEnv(process.env);
+  if (values.MAIL_TRANSPORT !== "smtp") {
+    missing("MAIL_TRANSPORT", "Production must send email over SMTP");
+  }
+
+  if (!values.SMTP_HOST) {
+    missing("SMTP_HOST", "SMTP_HOST is required in production");
+  }
+
+  if (!values.MAIL_FROM) {
+    missing("MAIL_FROM", "MAIL_FROM is required in production");
+  }
+};
+
+const result = envSchema.superRefine(requireMailSettings).safeParse(process.env);
 
 if (!result.success) {
   console.error(

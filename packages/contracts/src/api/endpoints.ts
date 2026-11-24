@@ -1,7 +1,9 @@
 import { z } from "zod";
 import {
-  createAlertChannelSchema,
   alertChannelSchema,
+  alertChannelSigningSecretSchema,
+  alertDeliverySchema,
+  createAlertChannelSchema,
   updateAlertChannelSchema,
 } from "../alert-channels/index.ts";
 import {
@@ -197,6 +199,26 @@ export const endpoints = {
     method: "POST",
     path: "/alert-channels/:id/test",
     access: "alert-channel:write",
+    response: alertDeliverySchema,
+  }),
+  listAlertChannelDeliveries: defineEndpoint({
+    method: "GET",
+    path: "/alert-channels/:id/deliveries",
+    access: "alert-channel:read",
+    query: paginationQuerySchema,
+    response: paginatedSchema(alertDeliverySchema),
+  }),
+  getAlertChannelSigningSecret: defineEndpoint({
+    method: "GET",
+    path: "/alert-channels/:id/signing-secret",
+    access: "alert-channel:write",
+    response: alertChannelSigningSecretSchema,
+  }),
+  rotateAlertChannelSigningSecret: defineEndpoint({
+    method: "POST",
+    path: "/alert-channels/:id/signing-secret/rotate",
+    access: "alert-channel:write",
+    response: alertChannelSigningSecretSchema,
   }),
   transitionIncident: defineEndpoint({
     method: "POST",

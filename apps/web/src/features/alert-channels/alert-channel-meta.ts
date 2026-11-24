@@ -1,5 +1,6 @@
 import {
   type AlertChannelType,
+  type AlertDeliveryStatus,
   alertChannelTypeSchema,
 } from "@pulse/contracts";
 import {
@@ -45,3 +46,9 @@ export const channelTypeOptions = metaOptions(
   alertChannelTypeSchema.options,
   channelTypeMeta,
 );
+
+export const deliveryStatusMeta: Record<AlertDeliveryStatus, StatusMeta> = {
+  success: { label: "Delivered", tone: "success" },
+  retrying: { label: "Retrying", tone: "warning" },
+  failed: { label: "Failed", tone: "danger" },
+};

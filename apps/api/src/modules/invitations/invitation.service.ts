@@ -9,7 +9,9 @@ import {
 import { env } from "../../config/env.ts";
 import { daysFromNow } from "../../lib/dates.ts";
 import { AppError, conflict, notFound } from "../../lib/errors.ts";
+import { invitationEmail } from "../../lib/email-templates.ts";
 import { logger } from "../../lib/logger.ts";
+import { sendEmail } from "../../lib/mailer.ts";
 import { toLimitOffset, toPage } from "../../lib/pagination.ts";
 import { publishChange } from "../../lib/realtime.ts";
 import { hashPassword } from "../../security/passwords.ts";
@@ -109,10 +111,20 @@ export const createInvitation = async (
     invitedBy: { id: inviter.id, name: inviter.name },
   };
 
-  logger.info(
-    { email: created.email, inviteUrl: created.inviteUrl },
-    "Invitation created",
-  );
+  const content = invitationEmail({
+    inviteUrl: created.inviteUrl,
+    inviterName: inviter.name,
+    role: created.role,
+    expiresInDays: INVITATION_TTL_DAYS,
+  });
+
+  await sendEmail({ to: created.email, ...content }).catch((error: unknown) => {
+    logger.error(
+      { invitationId: created.id, err: error },
+      "Invitation email could not be sent",
+    );
+  });
+
   publishChange({ type: "invitation.updated", id: created.id });
 
   return created;

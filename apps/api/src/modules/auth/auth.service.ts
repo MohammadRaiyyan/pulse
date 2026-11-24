@@ -8,7 +8,9 @@ import {
 import { env } from "../../config/env.ts";
 import { minutesFromNow } from "../../lib/dates.ts";
 import { AppError, unauthorized } from "../../lib/errors.ts";
+import { passwordResetEmail } from "../../lib/email-templates.ts";
 import { logger } from "../../lib/logger.ts";
+import { sendEmail } from "../../lib/mailer.ts";
 import { signAccessToken } from "../../security/access-token.ts";
 import {
   burnPasswordCheckTime,
@@ -174,10 +176,17 @@ export const requestPasswordReset = async (email: string) => {
   const resetUrl = new URL("/reset-password", env.APP_URL);
   resetUrl.searchParams.set("token", token);
 
-  logger.info(
-    { email, resetUrl: resetUrl.href },
-    "Password reset link created",
-  );
+  const content = passwordResetEmail({
+    resetUrl: resetUrl.href,
+    expiresInMinutes: RESET_TOKEN_TTL_MINUTES,
+  });
+
+  void sendEmail({ to: user.email, ...content }).catch((error: unknown) => {
+    logger.error(
+      { userId: user.id, err: error },
+      "Password reset email could not be sent",
+    );
+  });
 };
 
 export const resetPassword = async (input: ResetPasswordInput) => {

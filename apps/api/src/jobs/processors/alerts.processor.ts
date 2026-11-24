@@ -4,7 +4,10 @@ import type { AlertJobData } from "../queues.ts";
 
 export const processAlertJob = async (job: Job) => {
   if (job.name === "send-alert") {
-    return deliverAlert(job.data as AlertJobData);
+    return deliverAlert(job.data as AlertJobData, {
+      attempt: job.attemptsMade + 1,
+      maxAttempts: job.opts.attempts ?? 1,
+    });
   }
 
   throw new Error(`Unknown alerts job: ${job.name}`);

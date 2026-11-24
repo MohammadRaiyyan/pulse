@@ -38,6 +38,21 @@ export const remove = async (req: Request, res: Response) => {
 
 export const sendTest = async (req: Request, res: Response) => {
   const id = validateId(req.params.id, LABEL);
-  await alertChannelService.sendTestAlert(id);
-  res.status(204).end();
+  res.json(await alertChannelService.sendTestAlert(id));
+};
+
+export const listDeliveries = async (req: Request, res: Response) => {
+  const id = validateId(req.params.id, LABEL);
+  const query = validateQuery(paginationQuerySchema, req.query);
+  res.json(await alertChannelService.getDeliveries(id, query));
+};
+
+export const getSigningSecret = async (req: Request, res: Response) => {
+  const id = validateId(req.params.id, LABEL);
+  res.json(await alertChannelService.getSigningSecret(id));
+};
+
+export const rotateSigningSecret = async (req: Request, res: Response) => {
+  const id = validateId(req.params.id, LABEL);
+  res.json(await alertChannelService.rotateSigningSecret(id));
 };

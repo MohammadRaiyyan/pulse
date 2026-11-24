@@ -1,5 +1,6 @@
 import type {
   AlertChannel,
+  AlertDelivery,
   CheckResult,
   Incident,
   Invitation,
@@ -23,6 +24,8 @@ type MockDb = {
   passwords: Map<string, string>;
   linkedAccounts: Map<string, LinkedAccount[]>;
   alertChannels: Map<string, AlertChannel>;
+  alertDeliveries: Map<string, AlertDelivery[]>;
+  signingSecrets: Map<string, string>;
   monitors: Map<string, Monitor>;
   checks: Map<string, CheckResult[]>;
   webhooks: Map<string, Webhook>;
@@ -48,6 +51,13 @@ const createDb = (): MockDb => {
     passwords: seedPasswords(users),
     linkedAccounts: seedLinkedAccounts(owner),
     alertChannels: byId(alertChannels),
+    alertDeliveries: new Map(
+      alertChannels.map((channel) => [
+        channel.id,
+        channel.lastDelivery ? [channel.lastDelivery] : [],
+      ]),
+    ),
+    signingSecrets: new Map(),
     monitors: byId(monitors),
     checks: new Map(monitorSeeds.map((seed) => [seed.monitor.id, seed.checks])),
     webhooks: byId(webhooks),

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { db } from "../../db/client.ts";
 import { invitations } from "../../models/index.ts";
 import { registerUser, request, useTestServer } from "../../test/client.ts";
+import { waitForEmail } from "../../test/mail.ts";
 
 useTestServer();
 
@@ -19,6 +20,11 @@ describe("invitations", () => {
     });
     expect(invitation.status).toBe(201);
     expect(invitation.body.status).toBe("pending");
+
+    const email = await waitForEmail("sam@test.dev");
+    expect(email.subject).toBe("Owner invited you to Pulse");
+    expect(email.text).toContain(invitation.body.inviteUrl);
+    expect(email.text).toContain("as member");
 
     const token = tokenFrom(invitation.body.inviteUrl);
 

@@ -4,7 +4,7 @@ import express from "express";
 import helmet from "helmet";
 import { pinoHttp } from "pino-http";
 import { env } from "./config/env.ts";
-import { logger } from "./lib/logger.ts";
+import { logger, serializeRequest } from "./lib/logger.ts";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.ts";
 import { httpMetrics } from "./modules/metrics/metrics.middleware.ts";
 import { createMetricsRouter } from "./modules/metrics/metrics.routes.ts";
@@ -26,6 +26,7 @@ export const createApp = () => {
         ignore: (req) =>
           req.url?.startsWith("/api/health") === true || req.url === "/metrics",
       },
+      serializers: { req: serializeRequest },
     }),
   );
 

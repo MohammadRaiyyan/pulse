@@ -10,6 +10,7 @@ import { useCan } from "@/features/auth/hooks/use-can";
 import { AlertChannelRowActions } from "./alert-channel-row-actions";
 import { ChannelEnabledSwitch } from "./channel-enabled-switch";
 import { ChannelTypeLabel } from "./channel-type-label";
+import { LastDelivery } from "./last-delivery";
 import { NewAlertChannelButton } from "./new-alert-channel-button";
 
 const useAlertChannelColumns = (): DataTableColumn<AlertChannel>[] => [
@@ -31,6 +32,12 @@ const useAlertChannelColumns = (): DataTableColumn<AlertChannel>[] => [
     cell: (channel) => channel.destination.target,
   },
   {
+    id: "lastDelivery",
+    header: "Last delivery",
+    skeleton: <TextSkeleton className="w-28" />,
+    cell: (channel) => <LastDelivery delivery={channel.lastDelivery} />,
+  },
+  {
     id: "enabled",
     header: "Enabled",
     skeleton: <Skeleton className="h-5 w-9 rounded-sm" />,
@@ -39,7 +46,7 @@ const useAlertChannelColumns = (): DataTableColumn<AlertChannel>[] => [
   {
     id: "actions",
     header: "",
-    skeleton: <ActionsSkeleton count={3} iconOnly />,
+    skeleton: <ActionsSkeleton count={4} iconOnly />,
     className: "text-right",
     hidden: !useCan("alert-channel:write"),
     cell: (channel) => <AlertChannelRowActions channel={channel} />,

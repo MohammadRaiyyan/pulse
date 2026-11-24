@@ -11,6 +11,16 @@ export const seedAlertChannels = (): AlertChannel[] => [
     isEnabled: true,
     destination: { type: "email", target: "oncall@pulse.dev" },
     createdAt: minutesAgo(20_000),
+    lastDelivery: {
+      id: seedId(CHANNEL_NAMESPACE, 101),
+      event: "incident.opened",
+      incidentId: null,
+      status: "success",
+      attempts: 1,
+      lastError: null,
+      createdAt: minutesAgo(90),
+      updatedAt: minutesAgo(90),
+    },
   },
   {
     id: seedId(CHANNEL_NAMESPACE, 2),
@@ -21,6 +31,16 @@ export const seedAlertChannels = (): AlertChannel[] => [
       target: "https://hooks.slack.com/services/T000/B000/XXXX",
     },
     createdAt: minutesAgo(15_000),
+    lastDelivery: {
+      id: seedId(CHANNEL_NAMESPACE, 102),
+      event: "incident.opened",
+      incidentId: null,
+      status: "failed",
+      attempts: 5,
+      lastError: "Receiver answered with HTTP 404",
+      createdAt: minutesAgo(95),
+      updatedAt: minutesAgo(60),
+    },
   },
   {
     id: seedId(CHANNEL_NAMESPACE, 3),
@@ -31,5 +51,6 @@ export const seedAlertChannels = (): AlertChannel[] => [
       target: "https://events.example.com/pulse",
     },
     createdAt: minutesAgo(9_000),
+    lastDelivery: null,
   },
 ];
