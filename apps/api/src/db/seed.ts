@@ -12,6 +12,7 @@ import { redis } from "../lib/redis.ts";
 import {
   alertChannels,
   checkResults,
+  monitorDailyStats,
   incidents,
   invitations,
   monitorAlertChannels,
@@ -31,6 +32,7 @@ if (!isLocalEnvironment) {
   process.exit(1);
 }
 
+const HISTORY_DAYS = 90;
 const DEMO_PASSWORD = "password123";
 const CHECKS_PER_MONITOR = 120;
 const STRIPE_EVENT_COUNT = 24;
@@ -116,6 +118,36 @@ const errorMessageFor: Record<CheckOutcome, string | null> = {
 
 const responseTimeAt = (baseMs: number, index: number) =>
   Math.round(baseMs + baseMs * 0.25 * Math.sin(index / 4) + (index % 7) * 4);
+
+const isoDaysAgo = (days: number) => daysFromNow(-days).toISOString().slice(0, 10);
+
+const seedDailyHistory = async (monitorIds: string[]) => {
+  const rows = monitorSeeds.flatMap((seed, monitorIndex) => {
+    const monitorId = monitorIds[monitorIndex];
+
+    if (!monitorId) {
+      return [];
+    }
+
+    return Array.from({ length: HISTORY_DAYS - 1 }, (_, index) => {
+      const daysBack = index + 1;
+      const checkCount = Math.round(86_400 / seed.intervalSeconds);
+      const hasOutage = (daysBack * (monitorIndex + 3)) % 29 === 0;
+      const isSlow = (daysBack + monitorIndex * 5) % 13 === 0;
+
+      return {
+        monitorId,
+        day: isoDaysAgo(daysBack),
+        checkCount,
+        downCount: hasOutage ? Math.max(1, Math.round(checkCount * 0.03)) : 0,
+        degradedCount: isSlow ? Math.round(checkCount * 0.08) : 0,
+        totalResponseTimeMs: checkCount * seed.baseResponseMs,
+      };
+    });
+  });
+
+  await db.insert(monitorDailyStats).values(rows).onConflictDoNothing();
+};
 
 const clearDatabase = async () => {
   await db.execute(
@@ -320,6 +352,7 @@ for (const seed of monitorSeeds) {
 }
 
 await rebuildDailyStats();
+await seedDailyHistory(seededMonitors.map((monitor) => monitor.id));
 
 const { github } = await seedWebhooks(channelIds);
 const [publicApi, payments, legacy] = seededMonitors;
