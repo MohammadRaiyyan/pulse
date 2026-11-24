@@ -1,0 +1,39 @@
+{$SITE_ADDRESS} {
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	handle /api/events {
+		reverse_proxy {$API_UPSTREAM} {
+			flush_interval -1
+		}
+	}
+
+	@server path /api /api/* /hooks /hooks/*
+	handle @server {
+		encode zstd gzip
+		reverse_proxy {$API_UPSTREAM}
+	}
+
+	handle /metrics {
+		respond 404
+	}
+
+	handle /assets/* {
+		root * /srv
+		@hashed file
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		encode zstd gzip
+		file_server
+	}
+
+	handle {
+		root * /srv
+		header Cache-Control "no-cache"
+		encode zstd gzip
+		try_files {path} /index.html
+		file_server
+	}
+}

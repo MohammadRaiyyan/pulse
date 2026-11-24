@@ -1,0 +1,120 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to deploy (must have passed CI)
+        required: true
+        default: main
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  images:
+    name: Build and push images
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      owner: ${{ steps.meta.outputs.owner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+      - id: meta
+        run: |
+          echo "tag=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+      - name: Require a green CI run for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          passed=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --commit "${{ steps.meta.outputs.tag }}" --status success --json databaseId --jq length)
+          if [ "$passed" -eq 0 ]; then
+            echo "::error::CI has not passed for ${{ steps.meta.outputs.tag }}"
+            exit 1
+          fi
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: api
+          push: true
+          tags: ghcr.io/${{ steps.meta.outputs.owner }}/pulse-api:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha,scope=api
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-to: type=gha,mode=max,scope=api
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: web
+          push: true
+          tags: ghcr.io/${{ steps.meta.outputs.owner }}/pulse-web:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha,scope=web
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-to: type=gha,mode=max,scope=web
+
+  deploy:
+    name: Deploy to server
+    needs: images
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/opt/pulse' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.images.outputs.tag }}
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf 'Host target\n  HostName %s\n  User %s\n  IdentityFile ~/.ssh/id_deploy\n  IdentitiesOnly yes\n' "$DEPLOY_HOST" "$DEPLOY_USER" > ~/.ssh/config
+      - name: Copy deployment files
+        run: |
+          ssh target "mkdir -p '$DEPLOY_PATH/deploy'"
+          scp deploy/compose.production.yml deploy/deploy.sh deploy/backup.sh "target:$DEPLOY_PATH/deploy/"
+      - name: Point the server at the new images
+        env:
+          OWNER: ${{ needs.images.outputs.owner }}
+        run: |
+          ssh target "cd '$DEPLOY_PATH/deploy' && sed -i \
+            -e 's#^PULSE_API_IMAGE=.*#PULSE_API_IMAGE=ghcr.io/$OWNER/pulse-api#' \
+            -e 's#^PULSE_WEB_IMAGE=.*#PULSE_WEB_IMAGE=ghcr.io/$OWNER/pulse-web#' .env"
+      - name: Deploy
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          TAG: ${{ needs.images.outputs.tag }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | ssh target "docker login ghcr.io -u '$GHCR_USER' --password-stdin >/dev/null"
+          ssh target "bash '$DEPLOY_PATH/deploy/deploy.sh' '$TAG'"
+      - if: always()
+        run: ssh target "docker logout ghcr.io >/dev/null" || true
