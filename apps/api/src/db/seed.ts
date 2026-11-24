@@ -23,6 +23,7 @@ import {
 } from "../models/index.ts";
 import { inviteUrlFor } from "../modules/invitations/invitation.service.ts";
 import { hashPassword } from "../security/passwords.ts";
+import { rebuildDailyStats } from "../modules/monitors/monitor.repository.ts";
 import { db, sql } from "./client.ts";
 
 if (!isLocalEnvironment) {
@@ -317,6 +318,8 @@ const seededMonitors = [];
 for (const seed of monitorSeeds) {
   seededMonitors.push(await seedMonitor(seed, channelIds));
 }
+
+await rebuildDailyStats();
 
 const { github } = await seedWebhooks(channelIds);
 const [publicApi, payments, legacy] = seededMonitors;

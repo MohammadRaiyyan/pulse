@@ -46,6 +46,7 @@ const monitorFor = (path: string, timeoutMs = 5000): MonitorRow => ({
   lastCheckedAt: null,
   lastResponseTimeMs: null,
   uptimePercent: null,
+  serviceId: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 });

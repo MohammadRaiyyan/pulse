@@ -21,6 +21,7 @@ import {
 import { type Transaction, db } from "../../db/client.ts";
 import {
   checkResults,
+  monitorDailyStats,
   monitorAlertChannels,
   monitors,
 } from "../../models/index.ts";
@@ -236,6 +237,26 @@ export const saveCheckResult = (
       .insert(checkResults)
       .values({ monitorId, checkedAt, ...measurement });
 
+    await tx
+      .insert(monitorDailyStats)
+      .values({
+        monitorId,
+        day: checkedAt.toISOString().slice(0, 10),
+        checkCount: 1,
+        downCount: measurement.outcome === "down" ? 1 : 0,
+        degradedCount: measurement.outcome === "degraded" ? 1 : 0,
+        totalResponseTimeMs: measurement.responseTimeMs,
+      })
+      .onConflictDoUpdate({
+        target: [monitorDailyStats.monitorId, monitorDailyStats.day],
+        set: {
+          checkCount: sql`${monitorDailyStats.checkCount} + 1`,
+          downCount: sql`${monitorDailyStats.downCount} + excluded.down_count`,
+          degradedCount: sql`${monitorDailyStats.degradedCount} + excluded.degraded_count`,
+          totalResponseTimeMs: sql`${monitorDailyStats.totalResponseTimeMs} + excluded.total_response_time_ms`,
+        },
+      });
+
     const [stats] = await tx
       .select({
         uptimePercent:
@@ -267,3 +288,35 @@ export const deleteChecksOlderThan = async (date: Date) => {
   await db.delete(checkResults).where(lt(checkResults.checkedAt, date));
 };
 
+
+export const rebuildDailyStats = (monitorIds?: string[]) =>
+  db.transaction(async (tx) => {
+    const forMonitors = monitorIds ? inArray(checkResults.monitorId, monitorIds) : undefined;
+
+    await tx
+      .delete(monitorDailyStats)
+      .where(monitorIds ? inArray(monitorDailyStats.monitorId, monitorIds) : undefined);
+
+    const day = sql<string>`(${checkResults.checkedAt} at time zone 'UTC')::date`;
+
+    await tx.insert(monitorDailyStats).select(
+      tx
+        .select({
+          monitorId: checkResults.monitorId,
+          day: sql<string>`${day}`.as("day"),
+          checkCount: sql<number>`count(*)::int`.as("check_count"),
+          downCount: sql<number>`(count(*) filter (where ${checkResults.outcome} = 'down'))::int`.as("down_count"),
+          degradedCount: sql<number>`(count(*) filter (where ${checkResults.outcome} = 'degraded'))::int`.as(
+            "degraded_count",
+          ),
+          totalResponseTimeMs: sql<number>`sum(${checkResults.responseTimeMs})::bigint`.as("total_response_time_ms"),
+        })
+        .from(checkResults)
+        .where(forMonitors)
+        .groupBy(checkResults.monitorId, day),
+    );
+  });
+
+export const deleteDailyStatsBefore = async (day: string) => {
+  await db.delete(monitorDailyStats).where(lt(monitorDailyStats.day, day));
+};

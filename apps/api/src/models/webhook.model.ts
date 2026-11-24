@@ -9,6 +9,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { alertChannels } from "./alert-channel.model.ts";
+import { services } from "./service.model.ts";
 import { webhookStatusEnum } from "./enums.ts";
 
 export const webhooks = pgTable("webhooks", {
@@ -19,8 +20,9 @@ export const webhooks = pgTable("webhooks", {
   status: webhookStatusEnum().notNull().default("pending"),
   eventCount: integer().notNull().default(0),
   lastReceivedAt: timestamp({ withTimezone: true }),
+  serviceId: uuid().references(() => services.id, { onDelete: "set null" }),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [index("webhooks_service_idx").on(table.serviceId)]);
 
 export const webhookAlertChannels = pgTable(
   "webhook_alert_channels",
