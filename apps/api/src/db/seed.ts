@@ -2,9 +2,10 @@ import type {
   CheckOutcome,
   HttpMethod,
   MonitorStatus,
+  RequestContentType,
   Role,
 } from "@pulse/contracts";
-import { sql as rawSql } from "drizzle-orm";
+import { inArray, sql as rawSql } from "drizzle-orm";
 import { isLocalEnvironment } from "../config/env.ts";
 import { daysFromNow, minutesFromNow } from "../lib/dates.ts";
 import { logger } from "../lib/logger.ts";
@@ -17,6 +18,9 @@ import {
   invitations,
   monitorAlertChannels,
   monitors,
+  services,
+  statusPageSettings,
+  type StoredHeader,
   users,
   webhookAlertChannels,
   webhookEvents,
@@ -50,7 +54,17 @@ type MonitorSeed = {
   baseResponseMs: number;
   outcomeAt: (index: number) => CheckOutcome;
   channelIndexes: number[];
+  requestHeaders?: StoredHeader[];
+  requestBody?: string;
+  requestContentType?: RequestContentType;
 };
+
+const SOAP_PING_BODY = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <Ping xmlns="https://legacy.pulse.invalid/" />
+  </soap:Body>
+</soap:Envelope>`;
 
 const demoUsers: { name: string; email: string; role: Role }[] = [
   { name: "Olivia Owner", email: "owner@pulse.dev", role: "owner" },
@@ -71,6 +85,7 @@ const monitorSeeds: MonitorSeed[] = [
     baseResponseMs: 120,
     outcomeAt: (index) => (index === 40 ? "down" : "up"),
     channelIndexes: [0, 1],
+    requestHeaders: [{ name: "Accept", value: "application/json", secret: false }],
   },
   {
     name: "Payments service",
@@ -95,6 +110,9 @@ const monitorSeeds: MonitorSeed[] = [
     baseResponseMs: 2_400,
     outcomeAt: (index) => (index < 6 ? "down" : "up"),
     channelIndexes: [1],
+    requestHeaders: [{ name: "SOAPAction", value: "Ping", secret: false }],
+    requestBody: SOAP_PING_BODY,
+    requestContentType: "text/xml",
   },
   {
     name: "Docs site",
@@ -151,7 +169,7 @@ const seedDailyHistory = async (monitorIds: string[]) => {
 
 const clearDatabase = async () => {
   await db.execute(
-    rawSql`truncate table users, alert_channels, monitors, webhooks, incidents, invitations restart identity cascade`,
+    rawSql`truncate table users, alert_channels, services, monitors, webhooks, incidents, invitations, status_page_settings restart identity cascade`,
   );
   for (const pattern of ["cache:*", "rate:*"]) {
     const keys = await redis.keys(pattern);
@@ -234,6 +252,9 @@ const seedMonitor = async (seed: MonitorSeed, channelIds: string[]) => {
       intervalSeconds: seed.intervalSeconds,
       timeoutMs: seed.timeoutMs,
       expectedStatusCode: 200,
+      requestHeaders: seed.requestHeaders ?? [],
+      requestBody: seed.requestBody ?? null,
+      requestContentType: seed.requestContentType ?? null,
       isPaused: seed.isPaused,
       consecutiveFailures: seed.isPaused
         ? 0
@@ -354,8 +375,59 @@ for (const seed of monitorSeeds) {
 await rebuildDailyStats();
 await seedDailyHistory(seededMonitors.map((monitor) => monitor.id));
 
-const { github } = await seedWebhooks(channelIds);
+const { stripe, github } = await seedWebhooks(channelIds);
 const [publicApi, payments, legacy] = seededMonitors;
+
+const seedServices = async () => {
+  const [publicService, integrationsService, internalService] = await db
+    .insert(services)
+    .values([
+      {
+        name: "Customer API",
+        description: "The REST API and payment processing our customers use.",
+        isPublic: true,
+        position: 0,
+      },
+      {
+        name: "Integrations",
+        description: "Incoming events from Stripe and GitHub.",
+        isPublic: true,
+        position: 1,
+      },
+      {
+        name: "Internal",
+        description: "Back-office systems used by the team.",
+        isPublic: false,
+        position: 2,
+      },
+    ])
+    .returning();
+
+  if (!publicService || !internalService || !integrationsService || !publicApi || !payments || !legacy) {
+    throw new Error("Failed to seed services");
+  }
+
+  await db
+    .update(monitors)
+    .set({ serviceId: publicService.id })
+    .where(inArray(monitors.id, [publicApi.id, payments.id]));
+  await db
+    .update(monitors)
+    .set({ serviceId: internalService.id })
+    .where(inArray(monitors.id, [legacy.id]));
+  await db
+    .update(webhooks)
+    .set({ serviceId: integrationsService.id })
+    .where(inArray(webhooks.id, [stripe.id, github.id]));
+
+  await db.insert(statusPageSettings).values({
+    isEnabled: true,
+    title: "Pulse status",
+    description: "Live health of the Pulse demo services.",
+  });
+};
+
+await seedServices();
 
 const [ownerUser, adminUser] = seededUsers;
 

@@ -7,6 +7,7 @@ import {
 } from "@pulse/ui/components/field";
 import { useStore } from "@tanstack/react-form";
 import { type ReactNode, useId } from "react";
+import { toErrorMessage } from "./field-errors";
 import { useFieldContext } from "./form-context";
 
 export type FieldShellProps = {
@@ -26,20 +27,6 @@ type BoundField<TValue> = ReturnType<typeof useFieldContext<TValue>>;
 type FieldShellLayoutProps<TValue> = FieldShellProps & {
   orientation?: "vertical" | "horizontal";
   children: (control: FieldControl, field: BoundField<TValue>) => ReactNode;
-};
-
-const hasMessage = (error: unknown): error is { message: string } =>
-  typeof error === "object" &&
-  error !== null &&
-  "message" in error &&
-  typeof error.message === "string";
-
-const toErrorMessage = (error: unknown) => {
-  if (typeof error === "string") {
-    return { message: error };
-  }
-
-  return hasMessage(error) ? { message: error.message } : undefined;
 };
 
 export const FieldShell = <TValue,>({

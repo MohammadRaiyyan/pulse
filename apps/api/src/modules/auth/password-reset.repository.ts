@@ -1,6 +1,11 @@
 import { and, eq, gt, isNotNull, isNull, lt, or } from "drizzle-orm";
 import { db } from "../../db/client.ts";
-import { passwordResetTokens, sessions, users } from "../../models/index.ts";
+import {
+  linkedAccounts,
+  passwordResetTokens,
+  sessions,
+  users,
+} from "../../models/index.ts";
 
 export const insertPasswordResetToken = async (
   userId: string,
@@ -24,7 +29,10 @@ export const findUsablePasswordResetToken = async (tokenHash: string) => {
   return token;
 };
 
-export const completePasswordReset = (tokenHash: string, passwordHash: string) =>
+export const completePasswordReset = (
+  tokenHash: string,
+  passwordHash: string,
+) =>
   db.transaction(async (tx) => {
     const now = new Date();
 
@@ -44,10 +52,20 @@ export const completePasswordReset = (tokenHash: string, passwordHash: string) =
       return undefined;
     }
 
-    await tx
+    const [user] = await tx
       .update(users)
       .set({ passwordHash })
-      .where(eq(users.id, token.userId));
+      .where(eq(users.id, token.userId))
+      .returning({ id: users.id, email: users.email });
+
+    if (!user) {
+      return undefined;
+    }
+
+    const unlinked = await tx
+      .delete(linkedAccounts)
+      .where(eq(linkedAccounts.userId, token.userId))
+      .returning({ provider: linkedAccounts.provider });
     await tx
       .update(passwordResetTokens)
       .set({ usedAt: now })
@@ -64,7 +82,10 @@ export const completePasswordReset = (tokenHash: string, passwordHash: string) =
         and(eq(sessions.userId, token.userId), isNull(sessions.revokedAt)),
       );
 
-    return token.userId;
+    return {
+      ...user,
+      unlinkedProviders: unlinked.map((account) => account.provider),
+    };
   });
 
 export const deleteUsedOrExpiredResetTokens = async () => {

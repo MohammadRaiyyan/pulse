@@ -1,5 +1,6 @@
 import {
   type MonitorStatus,
+  type RequestContentType,
   httpMethodSchema,
   monitorStatusSchema,
 } from "@pulse/contracts";
@@ -10,7 +11,7 @@ import {
   TriangleAlertIcon,
 } from "lucide-react";
 import type { StatusMeta, StatusTone } from "@/components/data/tones";
-import { metaOptions, valueOptions } from "@/lib/options";
+import { type Option, findOption, metaOptions, valueOptions } from "@/lib/options";
 
 export const monitorStatusMeta: Record<MonitorStatus, StatusMeta> = {
   up: { label: "Up", tone: "success", icon: CircleCheckIcon },
@@ -42,3 +43,14 @@ export const getUptimeTone = (percent: number | null): StatusTone => {
 
   return percent >= UPTIME_WARNING_PERCENT ? "warning" : "danger";
 };
+
+export const requestContentTypeOptions: Option<RequestContentType>[] = [
+  { value: "application/json", label: "JSON" },
+  { value: "application/x-www-form-urlencoded", label: "Form (URL encoded)" },
+  { value: "text/plain", label: "Text" },
+  { value: "application/xml", label: "XML (application/xml)" },
+  { value: "text/xml", label: "XML (text/xml)" },
+];
+
+export const requestContentTypeLabel = (contentType: RequestContentType) =>
+  findOption(requestContentTypeOptions, contentType)?.label ?? contentType;

@@ -8,6 +8,7 @@ import { SelectField } from "./select-field";
 import { SubmitButton } from "./submit-button";
 import { SwitchField } from "./switch-field";
 import { TextField } from "./text-field";
+import { TextareaField } from "./textarea-field";
 import { fieldContext, formContext } from "./form-context";
 import { submitToServer } from "@/lib/forms/server-errors";
 
@@ -16,6 +17,7 @@ export const { useAppForm, withForm, withFieldGroup } = createFormHook({
   formContext,
   fieldComponents: {
     TextField,
+    TextareaField,
     NumberField,
     SelectField,
     SwitchField,

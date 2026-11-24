@@ -7,3 +7,4 @@ export * from "./monitor.model.ts";
 export * from "./webhook.model.ts";
 export * from "./incident.model.ts";
 export * from "./alert-delivery.model.ts";
+export * from "./status-page.model.ts";

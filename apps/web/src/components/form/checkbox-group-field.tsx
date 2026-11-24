@@ -2,6 +2,7 @@ import { Checkbox } from "@pulse/ui/components/checkbox";
 import { FieldDescription, FieldLabel } from "@pulse/ui/components/field";
 import type { Option } from "@/lib/options";
 import { FieldShell, type FieldShellProps } from "./field-shell";
+import { OptionLabel } from "./option-label";
 
 type CheckboxGroupFieldProps = FieldShellProps & {
   options: readonly Option[];
@@ -44,8 +45,11 @@ export const CheckboxGroupField = ({
                   }
                   onBlur={onBlur}
                 />
-                <FieldLabel htmlFor={optionId} className="font-normal">
-                  {option.label}
+                <FieldLabel
+                  htmlFor={optionId}
+                  className="font-normal [&>svg]:size-4"
+                >
+                  <OptionLabel option={option} />
                 </FieldLabel>
               </div>
             );

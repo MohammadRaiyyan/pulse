@@ -14,6 +14,10 @@ export const list = async (req: Request, res: Response) => {
   res.json(await alertChannelService.getAlertChannels(query));
 };
 
+export const counts = async (_req: Request, res: Response) => {
+  res.json(await alertChannelService.getAlertChannelCounts());
+};
+
 export const getOne = async (req: Request, res: Response) => {
   const id = validateId(req.params.id, LABEL);
   res.json(await alertChannelService.getAlertChannel(id));

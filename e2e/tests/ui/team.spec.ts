@@ -1,6 +1,17 @@
-import { createTeammate, uniqueEmail, uniqueSuffix } from "../../support/api-client.ts";
-import { choose, confirmDialog, expect, goTo, tableRow, test, toast } from "../../support/fixtures.ts";
+import { type ApiClient, createTeammate, demoUsers, uniqueEmail, uniqueSuffix } from "../../support/api-client.ts";
+import { choose, confirmDialog, expect, goTo, signInContext, tableRow, test, toast } from "../../support/fixtures.ts";
 import { WEB_ORIGIN } from "../../support/environment.ts";
+
+const restoreSeededOwner = async (seededOwner: ApiClient, temporaryOwner: ApiClient) => {
+  const members = await seededOwner.get("/members?pageSize=100");
+  const items = members.body.items as { id: string; email: string; role: string }[];
+  const seeded = items.find((item) => item.email === demoUsers.owner);
+  const currentOwner = items.find((item) => item.role === "owner");
+
+  if (seeded && currentOwner && currentOwner.id !== seeded.id && currentOwner.email === temporaryOwner.email) {
+    await temporaryOwner.post(`/members/${seeded.id}/transfer-ownership`, { currentPassword: temporaryOwner.password });
+  }
+};
 
 test.describe("team", () => {
   test("invite validation shows field errors", async ({ pageAs, ownerApi }) => {
@@ -98,6 +109,62 @@ test.describe("team", () => {
     await goTo(ownerPage, "Team");
     await expect(ownerPage.getByLabel(`Role for ${otherAdmin.name}`)).toBeVisible();
     await expect(ownerPage.getByRole("button", { name: `Remove ${otherAdmin.name}` })).toBeVisible();
+  });
+
+  test("the owner transfers ownership to a teammate and gets it back", async ({ pageAs, ownerApi, browser }) => {
+    const successor = await createTeammate(ownerApi, "member", `Sam Successor ${uniqueSuffix()}`);
+    const unverified = await createTeammate(ownerApi, "viewer", `Uma Unverified ${uniqueSuffix()}`);
+    await unverified.client.patch("/me", {
+      name: unverified.name,
+      email: uniqueEmail("unverified"),
+      currentPassword: unverified.password,
+    });
+
+    try {
+      const page = await pageAs("owner");
+      await page.goto("/team?pageSize=100");
+      await expect(page.getByRole("button", { name: `Transfer ownership to ${unverified.name}` })).toHaveAttribute(
+        "aria-disabled",
+        "true",
+      );
+      await expect(page.getByRole("button", { name: "Transfer ownership to Olivia Owner" })).toHaveCount(0);
+
+      await page.getByRole("button", { name: `Transfer ownership to ${successor.name}` }).click();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog.getByText(`${successor.name} becomes the workspace owner.`)).toBeVisible();
+      await dialog.getByLabel("Your current password").fill("not-my-password");
+      await dialog.getByRole("button", { name: "Transfer ownership" }).click();
+      await expect(dialog.getByText("Current password is incorrect")).toBeVisible();
+
+      await dialog.getByLabel("Your current password").fill("password123");
+      await dialog.getByRole("button", { name: "Transfer ownership" }).click();
+      await expect(dialog).toBeHidden();
+      await toast(page, `${successor.name} is now the owner`);
+
+      await expect(tableRow(page, successor.email).getByText("Owner", { exact: true })).toBeVisible();
+      await expect(tableRow(page, "owner@pulse.dev").getByText("Admin", { exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: /^Transfer ownership to/ })).toHaveCount(0);
+      await expect(page.getByLabel(`Role for ${successor.name}`)).toHaveCount(0);
+
+      const successorContext = await browser.newContext({ baseURL: WEB_ORIGIN });
+      await signInContext(successorContext, successor.email);
+      const successorPage = await successorContext.newPage();
+      await successorPage.goto("/team?pageSize=100");
+      await expect(successorPage.getByLabel("Role for Olivia Owner")).toBeVisible();
+      await successorPage.getByRole("button", { name: "Transfer ownership to Olivia Owner" }).click();
+      const backDialog = successorPage.getByRole("dialog");
+      await backDialog.getByLabel("Your current password").fill(successor.password);
+      await backDialog.getByRole("button", { name: "Transfer ownership" }).click();
+      await toast(successorPage, "Olivia Owner is now the owner");
+      await expect(tableRow(successorPage, "owner@pulse.dev").getByText("Owner", { exact: true })).toBeVisible();
+      await successorContext.close();
+
+      await page.reload();
+      await expect(tableRow(page, "owner@pulse.dev").getByText("Owner", { exact: true })).toBeVisible();
+      await expect(page.getByLabel(`Role for ${successor.name}`)).toBeVisible();
+    } finally {
+      await restoreSeededOwner(ownerApi, successor.client);
+    }
   });
 
   test("the owner row is protected", async ({ pageAs }) => {

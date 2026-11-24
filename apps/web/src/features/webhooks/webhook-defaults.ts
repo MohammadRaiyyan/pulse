@@ -4,4 +4,5 @@ export const defaultWebhookInput: CreateWebhookInput = {
   name: "",
   expectedIntervalSeconds: null,
   alertChannelIds: [],
+  serviceId: null,
 };

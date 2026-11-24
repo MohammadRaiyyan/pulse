@@ -21,12 +21,34 @@ import { now } from "../lib/time";
 
 const LABEL = "Monitor";
 
+const toRequestFields = (
+  input: UpdateMonitorInput,
+  monitor?: Monitor,
+): Pick<Monitor, "requestHeaders" | "requestBody" | "requestContentType"> => {
+  const requestBody =
+    input.requestBody === undefined
+      ? (monitor?.requestBody ?? null)
+      : input.requestBody || null;
+
+  return {
+    requestHeaders: (input.requestHeaders ?? monitor?.requestHeaders ?? []).map(
+      (header) => (header.secret ? { ...header, value: null } : header),
+    ),
+    requestBody,
+    requestContentType: requestBody
+      ? (input.requestContentType ?? monitor?.requestContentType ?? null)
+      : null,
+  };
+};
+
 const toMonitor = (input: CreateMonitorInput): Monitor => {
   assertChannelsExist(input.alertChannelIds);
 
   return {
     ...input,
+    ...toRequestFields(input),
     id: newId(),
+    serviceId: input.serviceId ?? null,
     status: "pending",
     isPaused: false,
     failureThreshold: input.failureThreshold ?? DEFAULT_FAILURE_THRESHOLD,
@@ -52,6 +74,7 @@ const applyMonitorUpdate = (
   return {
     ...monitor,
     ...input,
+    ...toRequestFields(input, monitor),
     failureThreshold: input.failureThreshold ?? monitor.failureThreshold,
     consecutiveFailures: input.isPaused ? 0 : monitor.consecutiveFailures,
     updatedAt: now(),

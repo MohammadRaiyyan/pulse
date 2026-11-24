@@ -24,7 +24,16 @@ import {
   monitorDailyStats,
   monitorAlertChannels,
   monitors,
+  type StoredHeader,
 } from "../../models/index.ts";
+
+export type MonitorValues = Omit<CreateMonitorInput, "requestHeaders"> & {
+  requestHeaders?: StoredHeader[];
+};
+
+export type MonitorChanges = Omit<UpdateMonitorInput, "requestHeaders"> & {
+  requestHeaders?: StoredHeader[];
+};
 
 export type CheckMeasurement = {
   outcome: CheckOutcome;
@@ -72,6 +81,19 @@ export const findMonitor = async (id: string) => {
   return monitor;
 };
 
+export const findMonitorRequestConfig = async (id: string) => {
+  const [config] = await db
+    .select({
+      method: monitors.method,
+      requestHeaders: monitors.requestHeaders,
+      requestBody: monitors.requestBody,
+      requestContentType: monitors.requestContentType,
+    })
+    .from(monitors)
+    .where(eq(monitors.id, id));
+  return config;
+};
+
 export const findChannelIdsByMonitorIds = async (monitorIds: string[]) => {
   const channelIdsByMonitor = new Map<string, string[]>();
 
@@ -113,7 +135,7 @@ const replaceChannelLinks = async (
 };
 
 export const insertMonitorWithinLimit = (
-  input: CreateMonitorInput,
+  input: MonitorValues,
   maxMonitors: number,
 ) =>
   db.transaction(async (tx) => {
@@ -137,7 +159,7 @@ export const insertMonitorWithinLimit = (
     return monitor;
   });
 
-export const updateMonitor = (id: string, input: UpdateMonitorInput) =>
+export const updateMonitor = (id: string, input: MonitorChanges) =>
   db.transaction(async (tx) => {
     const { alertChannelIds, ...values } = input;
     const [monitor] = await tx

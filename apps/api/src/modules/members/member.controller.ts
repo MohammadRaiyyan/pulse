@@ -1,4 +1,8 @@
-import { paginationQuerySchema, updateMemberSchema } from "@pulse/contracts";
+import {
+  paginationQuerySchema,
+  transferOwnershipSchema,
+  updateMemberSchema,
+} from "@pulse/contracts";
 import type { Request, Response } from "express";
 import { validate, validateId, validateQuery } from "../../lib/validate.ts";
 import { currentUser } from "../../middleware/authenticate.ts";
@@ -20,6 +24,12 @@ export const update = async (req: Request, res: Response) => {
   const id = validateId(req.params.id, LABEL);
   const input = validate(updateMemberSchema, req.body);
   res.json(await memberService.changeMemberRole(currentUser(req), id, input));
+};
+
+export const transferOwnership = async (req: Request, res: Response) => {
+  const id = validateId(req.params.id, LABEL);
+  const input = validate(transferOwnershipSchema, req.body);
+  res.json(await memberService.transferOwnership(currentUser(req), id, input));
 };
 
 export const remove = async (req: Request, res: Response) => {

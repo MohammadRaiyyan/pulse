@@ -2,11 +2,14 @@ import {
   type CreateMonitorInput,
   MONITOR_LIMITS,
   createMonitorSchema,
+  methodAllowsBody,
 } from "@pulse/contracts";
 import type { ResourceFormProps } from "@/components/dialogs/resource-form-props";
 import { useSchemaForm } from "@/components/form/app-form";
 import { AlertChannelsField } from "@/features/alert-channels/components/alert-channels-field";
+import { ServiceField } from "@/features/services/components/service-field";
 import { httpMethodOptions } from "../monitor-meta";
+import { MonitorRequestFields } from "./monitor-request-fields";
 
 export const MonitorForm = ({
   defaultValues,
@@ -29,7 +32,17 @@ export const MonitorForm = ({
           )}
         </form.AppField>
         <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
-          <form.AppField name="method">
+          <form.AppField
+            name="method"
+            listeners={{
+              onChange: ({ value }) => {
+                if (!methodAllowsBody(value)) {
+                  form.setFieldValue("requestBody", null);
+                  form.setFieldValue("requestContentType", null);
+                }
+              },
+            }}
+          >
             {(field) => (
               <field.SelectField label="Method" options={httpMethodOptions} />
             )}
@@ -83,11 +96,15 @@ export const MonitorForm = ({
             />
           )}
         </form.AppField>
+        <form.AppField name="serviceId">
+          {() => <ServiceField />}
+        </form.AppField>
         <form.AppField name="alertChannelIds">
           {() => (
             <AlertChannelsField description="Who gets notified when this monitor goes down." />
           )}
         </form.AppField>
+        <MonitorRequestFields form={form} />
         <form.FormActions submitLabel={submitLabel} onCancel={onCancel} />
       </form.Form>
     </form.AppForm>

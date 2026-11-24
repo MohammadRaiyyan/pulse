@@ -11,11 +11,15 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
+import { Route as StatusRouteImport } from './routes/status'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAlertChannelsRouteImport } from './routes/_app/alert-channels'
 import { Route as AppIncidentsRouteImport } from './routes/_app/incidents'
+import { Route as AppIntegrationsRouteImport } from './routes/_app/integrations'
+import { Route as AppReportsRouteImport } from './routes/_app/reports'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as AppStatusPageRouteImport } from './routes/_app/status-page'
 import { Route as AppTeamRouteImport } from './routes/_app/team'
 import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
@@ -23,9 +27,11 @@ import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
 import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-password'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AppMonitorsIndexRouteImport } from './routes/_app/monitors/index'
+import { Route as AppServicesIndexRouteImport } from './routes/_app/services/index'
 import { Route as AppWebhooksIndexRouteImport } from './routes/_app/webhooks/index'
 import { Route as OauthCallbackProviderRouteImport } from './routes/oauth.callback.$provider'
 import { Route as AppMonitorsMonitorIdIndexRouteImport } from './routes/_app/monitors/$monitorId/index'
+import { Route as AppServicesServiceIdIndexRouteImport } from './routes/_app/services/$serviceId/index'
 import { Route as AppWebhooksWebhookIdIndexRouteImport } from './routes/_app/webhooks/$webhookId/index'
 
 const AppRoute = AppRouteImport.update({
@@ -34,6 +40,11 @@ const AppRoute = AppRouteImport.update({
 } as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StatusRoute = StatusRouteImport.update({
+  id: '/status',
+  path: '/status',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VerifyEmailRoute = VerifyEmailRouteImport.update({
@@ -56,9 +67,24 @@ const AppIncidentsRoute = AppIncidentsRouteImport.update({
   path: '/incidents',
   getParentRoute: () => AppRoute,
 } as any)
+const AppIntegrationsRoute = AppIntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppReportsRoute = AppReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStatusPageRoute = AppStatusPageRouteImport.update({
+  id: '/status-page',
+  path: '/status-page',
   getParentRoute: () => AppRoute,
 } as any)
 const AppTeamRoute = AppTeamRouteImport.update({
@@ -96,6 +122,11 @@ const AppMonitorsIndexRoute = AppMonitorsIndexRouteImport.update({
   path: '/monitors/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppServicesIndexRoute = AppServicesIndexRouteImport.update({
+  id: '/services/',
+  path: '/services/',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppWebhooksIndexRoute = AppWebhooksIndexRouteImport.update({
   id: '/webhooks/',
   path: '/webhooks/',
@@ -112,6 +143,12 @@ const AppMonitorsMonitorIdIndexRoute =
     path: '/monitors/$monitorId/',
     getParentRoute: () => AppRoute,
   } as any)
+const AppServicesServiceIdIndexRoute =
+  AppServicesServiceIdIndexRouteImport.update({
+    id: '/services/$serviceId/',
+    path: '/services/$serviceId/',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppWebhooksWebhookIdIndexRoute =
   AppWebhooksWebhookIdIndexRouteImport.update({
     id: '/webhooks/$webhookId/',
@@ -121,10 +158,14 @@ const AppWebhooksWebhookIdIndexRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/status': typeof StatusRoute
   '/verify-email': typeof VerifyEmailRoute
   '/alert-channels': typeof AppAlertChannelsRoute
   '/incidents': typeof AppIncidentsRoute
+  '/integrations': typeof AppIntegrationsRoute
+  '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
+  '/status-page': typeof AppStatusPageRoute
   '/team': typeof AppTeamRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
@@ -133,16 +174,22 @@ export interface FileRoutesByFullPath {
   '/invite/$token': typeof InviteTokenRoute
   '/oauth/callback/$provider': typeof OauthCallbackProviderRoute
   '/monitors/': typeof AppMonitorsIndexRoute
+  '/services/': typeof AppServicesIndexRoute
   '/webhooks/': typeof AppWebhooksIndexRoute
   '/monitors/$monitorId/': typeof AppMonitorsMonitorIdIndexRoute
+  '/services/$serviceId/': typeof AppServicesServiceIdIndexRoute
   '/webhooks/$webhookId/': typeof AppWebhooksWebhookIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/status': typeof StatusRoute
   '/verify-email': typeof VerifyEmailRoute
   '/alert-channels': typeof AppAlertChannelsRoute
   '/incidents': typeof AppIncidentsRoute
+  '/integrations': typeof AppIntegrationsRoute
+  '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
+  '/status-page': typeof AppStatusPageRoute
   '/team': typeof AppTeamRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
@@ -151,18 +198,24 @@ export interface FileRoutesByTo {
   '/invite/$token': typeof InviteTokenRoute
   '/oauth/callback/$provider': typeof OauthCallbackProviderRoute
   '/monitors': typeof AppMonitorsIndexRoute
+  '/services': typeof AppServicesIndexRoute
   '/webhooks': typeof AppWebhooksIndexRoute
   '/monitors/$monitorId': typeof AppMonitorsMonitorIdIndexRoute
+  '/services/$serviceId': typeof AppServicesServiceIdIndexRoute
   '/webhooks/$webhookId': typeof AppWebhooksWebhookIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
+  '/status': typeof StatusRoute
   '/verify-email': typeof VerifyEmailRoute
   '/_app/alert-channels': typeof AppAlertChannelsRoute
   '/_app/incidents': typeof AppIncidentsRoute
+  '/_app/integrations': typeof AppIntegrationsRoute
+  '/_app/reports': typeof AppReportsRoute
   '/_app/settings': typeof AppSettingsRoute
+  '/_app/status-page': typeof AppStatusPageRoute
   '/_app/team': typeof AppTeamRoute
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/login': typeof AuthLoginRoute
@@ -172,18 +225,24 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/oauth/callback/$provider': typeof OauthCallbackProviderRoute
   '/_app/monitors/': typeof AppMonitorsIndexRoute
+  '/_app/services/': typeof AppServicesIndexRoute
   '/_app/webhooks/': typeof AppWebhooksIndexRoute
   '/_app/monitors/$monitorId/': typeof AppMonitorsMonitorIdIndexRoute
+  '/_app/services/$serviceId/': typeof AppServicesServiceIdIndexRoute
   '/_app/webhooks/$webhookId/': typeof AppWebhooksWebhookIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/status'
     | '/verify-email'
     | '/alert-channels'
     | '/incidents'
+    | '/integrations'
+    | '/reports'
     | '/settings'
+    | '/status-page'
     | '/team'
     | '/forgot-password'
     | '/login'
@@ -192,16 +251,22 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/oauth/callback/$provider'
     | '/monitors/'
+    | '/services/'
     | '/webhooks/'
     | '/monitors/$monitorId/'
+    | '/services/$serviceId/'
     | '/webhooks/$webhookId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/status'
     | '/verify-email'
     | '/alert-channels'
     | '/incidents'
+    | '/integrations'
+    | '/reports'
     | '/settings'
+    | '/status-page'
     | '/team'
     | '/forgot-password'
     | '/login'
@@ -210,17 +275,23 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/oauth/callback/$provider'
     | '/monitors'
+    | '/services'
     | '/webhooks'
     | '/monitors/$monitorId'
+    | '/services/$serviceId'
     | '/webhooks/$webhookId'
   id:
     | '__root__'
     | '/_app'
     | '/_auth'
+    | '/status'
     | '/verify-email'
     | '/_app/alert-channels'
     | '/_app/incidents'
+    | '/_app/integrations'
+    | '/_app/reports'
     | '/_app/settings'
+    | '/_app/status-page'
     | '/_app/team'
     | '/_auth/forgot-password'
     | '/_auth/login'
@@ -230,14 +301,17 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/oauth/callback/$provider'
     | '/_app/monitors/'
+    | '/_app/services/'
     | '/_app/webhooks/'
     | '/_app/monitors/$monitorId/'
+    | '/_app/services/$serviceId/'
     | '/_app/webhooks/$webhookId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  StatusRoute: typeof StatusRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   InviteTokenRoute: typeof InviteTokenRoute
   OauthCallbackProviderRoute: typeof OauthCallbackProviderRoute
@@ -257,6 +331,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/status': {
+      id: '/status'
+      path: '/status'
+      fullPath: '/status'
+      preLoaderRoute: typeof StatusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/verify-email': {
@@ -287,11 +368,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIncidentsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/integrations': {
+      id: '/_app/integrations'
+      path: '/integrations'
+      fullPath: '/integrations'
+      preLoaderRoute: typeof AppIntegrationsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/reports': {
+      id: '/_app/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AppReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/settings': {
       id: '/_app/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/status-page': {
+      id: '/_app/status-page'
+      path: '/status-page'
+      fullPath: '/status-page'
+      preLoaderRoute: typeof AppStatusPageRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/team': {
@@ -343,6 +445,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMonitorsIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/services/': {
+      id: '/_app/services/'
+      path: '/services'
+      fullPath: '/services/'
+      preLoaderRoute: typeof AppServicesIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/webhooks/': {
       id: '/_app/webhooks/'
       path: '/webhooks'
@@ -364,6 +473,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMonitorsMonitorIdIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/services/$serviceId/': {
+      id: '/_app/services/$serviceId/'
+      path: '/services/$serviceId'
+      fullPath: '/services/$serviceId/'
+      preLoaderRoute: typeof AppServicesServiceIdIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/webhooks/$webhookId/': {
       id: '/_app/webhooks/$webhookId/'
       path: '/webhooks/$webhookId'
@@ -377,24 +493,34 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppAlertChannelsRoute: typeof AppAlertChannelsRoute
   AppIncidentsRoute: typeof AppIncidentsRoute
+  AppIntegrationsRoute: typeof AppIntegrationsRoute
+  AppReportsRoute: typeof AppReportsRoute
   AppSettingsRoute: typeof AppSettingsRoute
+  AppStatusPageRoute: typeof AppStatusPageRoute
   AppTeamRoute: typeof AppTeamRoute
   AppIndexRoute: typeof AppIndexRoute
   AppMonitorsIndexRoute: typeof AppMonitorsIndexRoute
+  AppServicesIndexRoute: typeof AppServicesIndexRoute
   AppWebhooksIndexRoute: typeof AppWebhooksIndexRoute
   AppMonitorsMonitorIdIndexRoute: typeof AppMonitorsMonitorIdIndexRoute
+  AppServicesServiceIdIndexRoute: typeof AppServicesServiceIdIndexRoute
   AppWebhooksWebhookIdIndexRoute: typeof AppWebhooksWebhookIdIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAlertChannelsRoute: AppAlertChannelsRoute,
   AppIncidentsRoute: AppIncidentsRoute,
+  AppIntegrationsRoute: AppIntegrationsRoute,
+  AppReportsRoute: AppReportsRoute,
   AppSettingsRoute: AppSettingsRoute,
+  AppStatusPageRoute: AppStatusPageRoute,
   AppTeamRoute: AppTeamRoute,
   AppIndexRoute: AppIndexRoute,
   AppMonitorsIndexRoute: AppMonitorsIndexRoute,
+  AppServicesIndexRoute: AppServicesIndexRoute,
   AppWebhooksIndexRoute: AppWebhooksIndexRoute,
   AppMonitorsMonitorIdIndexRoute: AppMonitorsMonitorIdIndexRoute,
+  AppServicesServiceIdIndexRoute: AppServicesServiceIdIndexRoute,
   AppWebhooksWebhookIdIndexRoute: AppWebhooksWebhookIdIndexRoute,
 }
 
@@ -419,6 +545,7 @@ const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  StatusRoute: StatusRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   InviteTokenRoute: InviteTokenRoute,
   OauthCallbackProviderRoute: OauthCallbackProviderRoute,

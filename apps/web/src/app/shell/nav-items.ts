@@ -2,9 +2,12 @@ import type { Permission } from "@pulse/contracts";
 import type { LinkProps } from "@tanstack/react-router";
 import {
   ActivityIcon,
-  BellRingIcon,
+  ChartColumnIcon,
+  GlobeIcon,
+  LayersIcon,
   LayoutDashboardIcon,
   type LucideIcon,
+  PlugIcon,
   SirenIcon,
   UsersIcon,
   WebhookIcon,
@@ -34,6 +37,12 @@ export const navItems: readonly NavItem[] = [
     permission: "monitor:read",
   },
   {
+    title: "Services",
+    to: "/services",
+    icon: LayersIcon,
+    permission: "monitor:read",
+  },
+  {
     title: "Webhooks",
     to: "/webhooks",
     icon: WebhookIcon,
@@ -47,10 +56,22 @@ export const navItems: readonly NavItem[] = [
     badge: ActiveIncidentsBadge,
   },
   {
-    title: "Alert channels",
-    to: "/alert-channels",
-    icon: BellRingIcon,
+    title: "Reports",
+    to: "/reports",
+    icon: ChartColumnIcon,
+    permission: "monitor:read",
+  },
+  {
+    title: "Integrations",
+    to: "/integrations",
+    icon: PlugIcon,
     permission: "alert-channel:read",
   },
   { title: "Team", to: "/team", icon: UsersIcon, permission: "member:read" },
+  {
+    title: "Status page",
+    to: "/status-page",
+    icon: GlobeIcon,
+    permission: "status-page:manage",
+  },
 ];

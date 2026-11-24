@@ -9,5 +9,8 @@ export * from "./members/index.ts";
 export * from "./monitors/index.ts";
 export * from "./rbac/index.ts";
 export * from "./realtime/index.ts";
+export * from "./services/index.ts";
+export * from "./status-page/index.ts";
+export * from "./reports/index.ts";
 export * from "./users/index.ts";
 export * from "./webhooks/index.ts";

@@ -1,8 +1,7 @@
 import type { AlertChannel } from "@pulse/contracts";
 import { Switch } from "@pulse/ui/components/switch";
 import { useCan } from "@/features/auth/hooks/use-can";
-import { useUpdateResource } from "@/lib/query/use-resource-mutations";
-import { alertChannelResource } from "../api/alert-channel-resource";
+import { useUpdateAlertChannel } from "../api/alert-channel-resource";
 
 export const ChannelEnabledSwitch = ({
   channel,
@@ -10,7 +9,7 @@ export const ChannelEnabledSwitch = ({
   channel: AlertChannel;
 }) => {
   const canWrite = useCan("alert-channel:write");
-  const updateChannel = useUpdateResource(alertChannelResource, {
+  const updateChannel = useUpdateAlertChannel({
     optimistic: true,
     successMessage: (updated) =>
       `${updated.name} ${updated.isEnabled ? "enabled" : "disabled"}`,

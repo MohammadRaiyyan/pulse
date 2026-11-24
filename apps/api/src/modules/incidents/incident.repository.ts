@@ -26,7 +26,7 @@ import { incidents, monitors, webhooks } from "../../models/index.ts";
 const actorColumn = (id: AnyColumn, name: AnyColumn) =>
   sql<IncidentActor | null>`case when ${id} is null then null else json_build_object('id', ${id}, 'name', ${name}) end`;
 
-const incidentColumns = {
+export const incidentColumns = {
   id: incidents.id,
   source: {
     type: incidents.sourceType,

@@ -1,9 +1,15 @@
 import {
   type AlertChannel,
+  type AlertChannelType,
   type AlertDelivery,
+  type AlertDestination,
+  type AlertDestinationUpdate,
   type CreateAlertChannelInput,
   type UpdateAlertChannelInput,
   endpoints,
+  isMaskedSecret,
+  isSecretAlertChannelType,
+  maskSecret,
   resources,
 } from "@pulse/contracts";
 import type { PathParams } from "msw";
@@ -19,8 +25,32 @@ import { now } from "../lib/time";
 
 const LABEL = "Alert channel";
 
+const toDestination = (
+  destination: AlertDestination | AlertDestinationUpdate,
+  current: AlertChannel["destination"] | undefined,
+): AlertChannel["destination"] => {
+  const isMasked = isSecretAlertChannelType(destination.type);
+  const region = destination.type === "opsgenie" ? destination.region : null;
+  const keepsTarget =
+    destination.target === undefined || isMaskedSecret(destination.target);
+
+  if (keepsTarget && current) {
+    return { ...current, type: destination.type, region };
+  }
+
+  const target = destination.target ?? "";
+
+  return {
+    type: destination.type,
+    target: isMasked ? maskSecret(target) : target,
+    region,
+    isMasked,
+  };
+};
+
 const toChannel = (input: CreateAlertChannelInput): AlertChannel => ({
   ...input,
+  destination: toDestination(input.destination, undefined),
   id: newId(),
   createdAt: now(),
   lastDelivery: null,
@@ -63,21 +93,42 @@ const onlyWebhooks = () =>
 const applyChannelUpdate = (
   channel: AlertChannel,
   input: UpdateAlertChannelInput,
-): AlertChannel => ({ ...channel, ...input });
+): AlertChannel => ({
+  ...channel,
+  name: input.name ?? channel.name,
+  isEnabled: input.isEnabled ?? channel.isEnabled,
+  destination: input.destination
+    ? toDestination(input.destination, channel.destination)
+    : channel.destination,
+});
+
+const countAlertChannels = route(
+  endpoints.countAlertChannelsByType,
+  ({ respond }) => {
+    const counts = new Map<AlertChannelType, number>();
+
+    for (const channel of db.alertChannels.values()) {
+      const { type } = channel.destination;
+      counts.set(type, (counts.get(type) ?? 0) + 1);
+    }
+
+    return respond([...counts].map(([type, count]) => ({ type, count })));
+  },
+);
 
 const testAlertChannel = route(
   endpoints.testAlertChannel,
   ({ params, respond }) => {
-  const channel = findById(db.alertChannels, params, LABEL);
+    const channel = findById(db.alertChannels, params, LABEL);
 
-  if (!channel.isEnabled) {
-    return errorResponse(
-      "CONFLICT",
-      "Enable the channel before sending a test alert",
-    );
-  }
+    if (!channel.isEnabled) {
+      return errorResponse(
+        "CONFLICT",
+        "Enable the channel before sending a test alert",
+      );
+    }
 
-  return respond(recordTestDelivery(channel));
+    return respond(recordTestDelivery(channel));
   },
 );
 
@@ -115,6 +166,7 @@ const rotateSigningSecret = route(
 );
 
 export const alertChannelHandlers = [
+  countAlertChannels,
   ...crudHandlers(resources.alertChannels, {
     label: LABEL,
     store: db.alertChannels,

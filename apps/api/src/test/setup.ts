@@ -14,7 +14,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await db.execute(
-    rawSql`truncate table users, alert_channels, monitors, webhooks, incidents, invitations restart identity cascade`,
+    rawSql`truncate table users, alert_channels, services, monitors, webhooks, incidents, invitations, status_page_settings restart identity cascade`,
   );
   await redis.flushdb();
   await clearSentEmails();

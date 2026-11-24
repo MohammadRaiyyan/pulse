@@ -2,15 +2,19 @@ import { randomUUID } from "node:crypto";
 import type {
   AuthConfig,
   LoginInput,
+  OAuthProvider,
   RegisterInput,
   ResetPasswordInput,
 } from "@pulse/contracts";
 import { env } from "../../config/env.ts";
 import { minutesFromNow } from "../../lib/dates.ts";
-import { passwordResetEmail } from "../../lib/email-templates.ts";
+import {
+  passwordChangedEmail,
+  passwordResetEmail,
+} from "../../lib/email-templates.ts";
 import { AppError, forbidden, unauthorized } from "../../lib/errors.ts";
 import { logger } from "../../lib/logger.ts";
-import { sendEmail } from "../../lib/mailer.ts";
+import { sendEmail, trySendEmail } from "../../lib/mailer.ts";
 import { signAccessToken } from "../../security/access-token.ts";
 import {
   burnPasswordCheckTime,
@@ -20,7 +24,10 @@ import {
 import { REFRESH_TOKEN_TTL_MS } from "../../security/refresh-cookie.ts";
 import { rejectAccessTokensIssuedBeforeNow } from "../../security/session-revocation.ts";
 import { generateToken, hashToken } from "../../security/tokens.ts";
-import { configuredProviders } from "../oauth/oauth-providers.ts";
+import {
+  configuredProviders,
+  providerConfigs,
+} from "../oauth/oauth-providers.ts";
 import {
   type UserRecord,
   findUserByEmail,
@@ -222,15 +229,30 @@ export const resetPassword = async (input: ResetPasswordInput) => {
     throw invalidResetLink();
   }
 
-  const userId = await completePasswordReset(
+  const user = await completePasswordReset(
     tokenHash,
     await hashPassword(input.password),
   );
 
-  if (!userId) {
+  if (!user) {
     throw invalidResetLink();
   }
 
-  await rejectAccessTokensIssuedBeforeNow(userId);
-  await forgetCachedUser(userId);
+  await rejectAccessTokensIssuedBeforeNow(user.id);
+  await forgetCachedUser(user.id);
+  await sendPasswordChangedEmail(user.email, user.unlinkedProviders);
 };
+
+export const sendPasswordChangedEmail = (
+  email: string,
+  disconnectedProviders: OAuthProvider[] = [],
+) =>
+  trySendEmail({
+    to: email,
+    ...passwordChangedEmail({
+      changedAt: new Date(),
+      disconnectedProviders: disconnectedProviders.map(
+        (provider) => providerConfigs[provider].label,
+      ),
+    }),
+  });

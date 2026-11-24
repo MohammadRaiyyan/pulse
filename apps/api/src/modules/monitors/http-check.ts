@@ -4,7 +4,9 @@ import {
   safeFetch,
 } from "../../lib/outbound-http.ts";
 import type { MonitorRow } from "../../models/index.ts";
+import { SecretDecryptionError } from "../../security/secret-box.ts";
 import type { CheckMeasurement } from "./monitor.repository.ts";
+import { toOutgoingHeaders } from "./request-config.ts";
 
 const DEGRADED_RATIO = 0.5;
 
@@ -14,6 +16,10 @@ const elapsedSince = (startedAt: number) =>
 const describeFailure = (error: unknown, timeoutMs: number) => {
   if (error instanceof DOMException && error.name === "TimeoutError") {
     return `Timed out after ${timeoutMs} ms`;
+  }
+
+  if (error instanceof SecretDecryptionError) {
+    return "A secret header could not be decrypted. Re-enter it.";
   }
 
   if (error instanceof OutboundRequestError) {
@@ -33,7 +39,8 @@ export const runHttpCheck = async (
     const response = await fetcher(monitor.url, {
       method: monitor.method,
       timeoutMs: monitor.timeoutMs,
-      headers: { "User-Agent": "PulseMonitor/1.0" },
+      headers: toOutgoingHeaders(monitor),
+      body: monitor.requestBody ?? undefined,
     });
     await response.body?.cancel();
 

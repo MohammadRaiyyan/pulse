@@ -3,7 +3,7 @@ import { TextSkeleton } from "@/components/skeleton/text-skeleton";
 import { ActionsSkeleton } from "@/components/skeleton/actions-skeleton";
 import { Skeleton } from "@pulse/ui/components/skeleton";
 import type { AlertChannel } from "@pulse/contracts";
-import { BellRingIcon } from "lucide-react";
+import { PlugIcon } from "lucide-react";
 import { type DataTableColumn, DataTable } from "@/components/data/data-table";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { useCan } from "@/features/auth/hooks/use-can";
@@ -11,7 +11,25 @@ import { AlertChannelRowActions } from "./alert-channel-row-actions";
 import { ChannelEnabledSwitch } from "./channel-enabled-switch";
 import { ChannelTypeLabel } from "./channel-type-label";
 import { LastDelivery } from "./last-delivery";
-import { NewAlertChannelButton } from "./new-alert-channel-button";
+import { opsgenieRegionLabels } from "../alert-channel-meta";
+
+const ChannelTarget = ({ channel }: { channel: AlertChannel }) => {
+  const { target, region, isMasked } = channel.destination;
+  const regionLabel = region ? ` · ${opsgenieRegionLabels[region]}` : "";
+
+  return (
+    <span
+      title={
+        isMasked
+          ? "Stored securely. Only the last 4 characters are shown."
+          : target
+      }
+    >
+      {target}
+      {regionLabel}
+    </span>
+  );
+};
 
 const useAlertChannelColumns = (): DataTableColumn<AlertChannel>[] => [
   {
@@ -21,7 +39,7 @@ const useAlertChannelColumns = (): DataTableColumn<AlertChannel>[] => [
   },
   {
     id: "type",
-    header: "Type",
+    header: "Provider",
     cell: (channel) => <ChannelTypeLabel type={channel.destination.type} />,
   },
   {
@@ -29,7 +47,7 @@ const useAlertChannelColumns = (): DataTableColumn<AlertChannel>[] => [
     header: "Target",
     skeleton: <TextSkeleton className="w-48" />,
     className: "max-w-72 truncate font-mono text-xs",
-    cell: (channel) => channel.destination.target,
+    cell: (channel) => <ChannelTarget channel={channel} />,
   },
   {
     id: "lastDelivery",
@@ -67,10 +85,9 @@ export const AlertChannelsTable = ({
       getRowId={(channel) => channel.id}
       emptyState={
         <EmptyState
-          icon={BellRingIcon}
-          title="No alert channels"
-          description="Add email, Slack or webhook channels to get notified about incidents."
-          action={<NewAlertChannelButton />}
+          icon={PlugIcon}
+          title="No integrations connected"
+          description="Connect a provider above to get notified about incidents."
         />
       }
     />

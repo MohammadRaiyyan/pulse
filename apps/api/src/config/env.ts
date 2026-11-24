@@ -11,6 +11,20 @@ const booleanString = z
   .enum(["true", "false"])
   .transform((value) => value === "true");
 
+export const DEVELOPMENT_ENCRYPTION_KEY =
+  "rvv0NkHBaPfbgBxSA58ywKQC0YX441xylvV/ROVjcGY=";
+
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+
+const encryptionKey = z
+  .string()
+  .trim()
+  .refine(
+    (value) =>
+      BASE64.test(value) && Buffer.from(value, "base64").length === 32,
+    "ENCRYPTION_KEY must be 32 bytes encoded as base64 (openssl rand -base64 32)",
+  );
+
 const trustProxy = z
   .string()
   .default("loopback")
@@ -34,18 +48,20 @@ const envSchema = z.object({
   APP_URL: z.url(),
   APP_VERSION: z.string().min(1).default("dev"),
   DATABASE_URL: z.url(),
+  DATABASE_MIGRATION_URL: emptyAsUnset(z.url()),
   REDIS_URL: z.url(),
   JWT_SECRET: z.string().min(32),
   INVITE_SECRET: z.string().min(32),
+  ENCRYPTION_KEY: emptyAsUnset(encryptionKey),
   COOKIE_SECURE: emptyAsUnset(booleanString),
   TRUST_PROXY: trustProxy,
-  METRICS_TOKEN: emptyAsUnset(z.string().min(32)),
-  OWNER_SIGNUP_ENABLED: z.stringbool().default(false),
+  METRICS_TOKEN: emptyAsUnset(z.string().min(32)),  OWNER_SIGNUP_ENABLED: z.stringbool().default(false),
   GITHUB_CLIENT_ID: z.string().default(""),
   GITHUB_CLIENT_SECRET: z.string().default(""),
   GOOGLE_CLIENT_ID: z.string().default(""),
   GOOGLE_CLIENT_SECRET: z.string().default(""),
   API_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
+  PUBLIC_STATUS_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(60),
   CHECK_DISPATCH_INTERVAL_MS: z.coerce.number().int().positive().default(15_000),
   SILENCE_CHECK_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
   ALLOW_PRIVATE_NETWORK_TARGETS: z.stringbool().default(false),
@@ -93,6 +109,18 @@ const productionRules = (values: Env, context: z.RefinementCtx) => {
     }
   }
 
+  if (!values.ENCRYPTION_KEY) {
+    invalid(
+      "ENCRYPTION_KEY",
+      "ENCRYPTION_KEY is required in production (generate one with openssl rand -base64 32)",
+    );
+  } else if (values.ENCRYPTION_KEY === DEVELOPMENT_ENCRYPTION_KEY) {
+    invalid(
+      "ENCRYPTION_KEY",
+      "ENCRYPTION_KEY still has the example development value",
+    );
+  }
+
   if (values.MAIL_TRANSPORT !== "smtp") {
     invalid("MAIL_TRANSPORT", "Production must send email over SMTP");
   }
@@ -118,7 +146,10 @@ if (!result.success) {
   process.exit(1);
 }
 
-export const env = result.data;
+export const env = {
+  ...result.data,
+  ENCRYPTION_KEY: result.data.ENCRYPTION_KEY ?? DEVELOPMENT_ENCRYPTION_KEY,
+};
 
 export const isProduction = env.NODE_ENV === "production";
 

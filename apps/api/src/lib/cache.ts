@@ -2,8 +2,14 @@ import { redis } from "./redis.ts";
 
 export const cacheKeys = {
   dashboardSummary: "cache:dashboard:summary",
+  publicStatus: "cache:public:status",
   user: (userId: string) => `cache:user:${userId}`,
 };
+
+export const statusCacheKeys = [
+  cacheKeys.dashboardSummary,
+  cacheKeys.publicStatus,
+];
 
 export const cached = async <TValue>(
   key: string,

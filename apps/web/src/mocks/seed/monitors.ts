@@ -61,6 +61,13 @@ const scenarios = (channelIds: readonly string[]): MonitorScenario[] => [
       timeoutMs: 10_000,
       expectedStatusCode: 200,
       alertChannelIds: channelIds.slice(1, 2),
+      requestHeaders: [
+        { name: "SOAPAction", value: "Ping", secret: false },
+        { name: "Authorization", value: null, secret: true },
+      ],
+      requestBody:
+        '<?xml version="1.0"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><Ping /></soap:Body></soap:Envelope>',
+      requestContentType: "text/xml",
     },
     status: "down",
     baseResponseMs: 2_400,
@@ -133,7 +140,11 @@ export const seedMonitors = (channelIds: readonly string[]) =>
 
     const monitor: Monitor = {
       ...scenario.input,
+      requestHeaders: scenario.input.requestHeaders ?? [],
+      requestBody: scenario.input.requestBody ?? null,
+      requestContentType: scenario.input.requestContentType ?? null,
       id,
+      serviceId: null,
       status: scenario.status,
       isPaused: scenario.isPaused ?? false,
       failureThreshold:

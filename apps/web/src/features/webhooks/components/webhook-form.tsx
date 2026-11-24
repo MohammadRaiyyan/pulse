@@ -6,6 +6,7 @@ import {
 import type { ResourceFormProps } from "@/components/dialogs/resource-form-props";
 import { useSchemaForm } from "@/components/form/app-form";
 import { AlertChannelsField } from "@/features/alert-channels/components/alert-channels-field";
+import { ServiceField } from "@/features/services/components/service-field";
 
 export const WebhookForm = ({
   defaultValues,
@@ -37,6 +38,9 @@ export const WebhookForm = ({
               placeholder="Disabled"
             />
           )}
+        </form.AppField>
+        <form.AppField name="serviceId">
+          {() => <ServiceField />}
         </form.AppField>
         <form.AppField name="alertChannelIds">
           {() => <AlertChannelsField />}

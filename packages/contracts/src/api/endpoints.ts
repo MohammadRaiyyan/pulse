@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   alertChannelSchema,
   alertChannelSigningSecretSchema,
+  alertChannelTypeCountsSchema,
   alertDeliverySchema,
   createAlertChannelSchema,
   updateAlertChannelSchema,
@@ -31,7 +32,11 @@ import {
   invitationPreviewSchema,
   invitationSchema,
 } from "../invitations/index.ts";
-import { updateMemberSchema } from "../members/index.ts";
+import {
+  ownershipTransferSchema,
+  transferOwnershipSchema,
+  updateMemberSchema,
+} from "../members/index.ts";
 import {
   checkResultSchema,
   createMonitorSchema,
@@ -39,6 +44,18 @@ import {
   monitorSchema,
   updateMonitorSchema,
 } from "../monitors/index.ts";
+import {
+  createServiceSchema,
+  serviceOverviewSchema,
+  serviceSchema,
+  updateServiceSchema,
+} from "../services/index.ts";
+import {
+  publicStatusSchema,
+  statusPageSettingsSchema,
+  updateStatusPageSettingsSchema,
+} from "../status-page/index.ts";
+import { reportQuerySchema, reportSchema } from "../reports/index.ts";
 import { updateProfileSchema, userSchema } from "../users/index.ts";
 import {
   createWebhookSchema,
@@ -65,6 +82,14 @@ export const resources = {
     listQuery: paginationQuerySchema,
     create: createWebhookSchema,
     update: updateWebhookSchema,
+  }),
+  services: defineResource({
+    path: "/services",
+    permissions: { read: "monitor:read", write: "monitor:write" },
+    item: serviceSchema,
+    listQuery: paginationQuerySchema,
+    create: createServiceSchema,
+    update: updateServiceSchema,
   }),
   alertChannels: defineResource({
     path: "/alert-channels",
@@ -200,6 +225,19 @@ export const endpoints = {
     access: "monitor:read",
     response: dashboardSummarySchema,
   }),
+  report: defineEndpoint({
+    method: "GET",
+    path: "/reports",
+    access: "monitor:read",
+    query: reportQuerySchema,
+    response: reportSchema,
+  }),
+  exportReport: defineEndpoint({
+    method: "GET",
+    path: "/reports/export",
+    access: "monitor:read",
+    query: reportQuerySchema,
+  }),
   listMonitorChecks: defineEndpoint({
     method: "GET",
     path: "/monitors/:id/checks",
@@ -213,6 +251,12 @@ export const endpoints = {
     access: "webhook:read",
     query: webhookEventListQuerySchema,
     response: paginatedSchema(webhookEventSchema),
+  }),
+  countAlertChannelsByType: defineEndpoint({
+    method: "GET",
+    path: "/alert-channels/counts",
+    access: "alert-channel:read",
+    response: alertChannelTypeCountsSchema,
   }),
   testAlertChannel: defineEndpoint({
     method: "POST",
@@ -244,6 +288,38 @@ export const endpoints = {
     path: "/incidents/:id/:transition",
     access: "incident:manage",
     response: incidentSchema,
+  }),
+  getServiceOverview: defineEndpoint({
+    method: "GET",
+    path: "/services/:id/overview",
+    access: "monitor:read",
+    response: serviceOverviewSchema,
+  }),
+  getStatusPageSettings: defineEndpoint({
+    method: "GET",
+    path: "/status-page",
+    access: "status-page:manage",
+    response: statusPageSettingsSchema,
+  }),
+  updateStatusPageSettings: defineEndpoint({
+    method: "PATCH",
+    path: "/status-page",
+    access: "status-page:manage",
+    body: updateStatusPageSettingsSchema,
+    response: statusPageSettingsSchema,
+  }),
+  getPublicStatus: defineEndpoint({
+    method: "GET",
+    path: "/public/status",
+    access: "public",
+    response: publicStatusSchema,
+  }),
+  transferOwnership: defineEndpoint({
+    method: "POST",
+    path: "/members/:id/transfer-ownership",
+    access: "member:manage",
+    body: transferOwnershipSchema,
+    response: ownershipTransferSchema,
   }),
   previewInvitation: defineEndpoint({
     method: "GET",
