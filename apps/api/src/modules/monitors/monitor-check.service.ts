@@ -44,6 +44,8 @@ export const checkMonitor = async (monitorId: string) => {
       measurement.errorMessage ?? `Monitor is ${measurement.outcome}`,
     );
   }
+
+  return measurement.outcome;
 };
 
 export const dispatchDueChecks = async () => {

@@ -6,7 +6,17 @@ import { processMaintenanceJob } from "./jobs/processors/maintenance.processor.t
 import { QUEUE_NAMES, closeQueues } from "./jobs/queues.ts";
 import { registerSchedulers } from "./jobs/schedulers.ts";
 import { logger } from "./lib/logger.ts";
+import { exitOnFatalErrors } from "./lib/process-errors.ts";
 import { createRedisConnection, redis } from "./lib/redis.ts";
+import { startHeartbeat } from "./modules/health/worker-heartbeat.ts";
+import {
+  recordCheckOutcome,
+  recordJobOutcome,
+} from "./modules/metrics/metric-counters.ts";
+
+exitOnFatalErrors("worker");
+
+const stopHeartbeat = startHeartbeat();
 
 await registerSchedulers();
 
@@ -24,17 +34,39 @@ const workers = [
   }),
 ];
 
+const logMetricError = (error: unknown) => {
+  logger.warn({ err: error }, "Could not record job metric");
+};
+
 for (const worker of workers) {
+  worker.on("completed", (job, result) => {
+    recordJobOutcome(worker.name, job.name, "completed").catch(logMetricError);
+
+    if (worker.name === QUEUE_NAMES.checks && job.name === "run-check") {
+      recordCheckOutcome(result).catch(logMetricError);
+    }
+  });
+
   worker.on("failed", (job, error) => {
     logger.error(
       {
         queue: worker.name,
+        jobId: job?.id,
         job: job?.name,
         attempt: job?.attemptsMade,
+        maxAttempts: job?.opts.attempts ?? 1,
         err: error,
       },
       "Job failed",
     );
+
+    if (job) {
+      recordJobOutcome(worker.name, job.name, "failed").catch(logMetricError);
+    }
+  });
+
+  worker.on("error", (error) => {
+    logger.error({ queue: worker.name, err: error }, "Worker error");
   });
 }
 
@@ -44,6 +76,7 @@ const shutdown = async (signal: string) => {
   logger.info(`${signal} received, shutting down worker`);
   setTimeout(() => process.exit(1), 30_000).unref();
 
+  stopHeartbeat();
   await Promise.all(workers.map((worker) => worker.close()));
   await closeQueues();
   await redis.quit();

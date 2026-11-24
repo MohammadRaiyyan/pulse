@@ -2,11 +2,37 @@ import { expect, test } from "../../support/fixtures.ts";
 import { API_ORIGIN, WEB_ORIGIN } from "../../support/environment.ts";
 
 test.describe("platform", () => {
-  test("health reports database and redis", async ({ request }) => {
+  test("health reports database, redis and the worker", async ({ request }) => {
     const response = await request.get("/api/health");
 
     expect(response.status()).toBe(200);
+    expect(await response.json()).toEqual({
+      status: "ok",
+      database: "ok",
+      redis: "ok",
+      worker: "up",
+      workerLastSeenAt: expect.any(String),
+    });
+  });
+
+  test("liveness does not depend on other services", async ({ request }) => {
+    const response = await request.get("/api/health/live");
+
+    expect(response.status()).toBe(200);
+    expect(await response.json()).toEqual({ status: "ok" });
+  });
+
+  test("readiness reports database and redis", async ({ request }) => {
+    const response = await request.get("/api/health/ready");
+
+    expect(response.status()).toBe(200);
     expect(await response.json()).toEqual({ status: "ok", database: "ok", redis: "ok" });
+  });
+
+  test("metrics are disabled without a token", async ({ request }) => {
+    const response = await request.get(`${API_ORIGIN}/metrics`);
+
+    expect(response.status()).toBe(404);
   });
 
   test("unknown routes use the error envelope", async ({ request }) => {
