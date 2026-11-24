@@ -285,6 +285,12 @@ describe("auth", () => {
       },
     });
     expect(reset.status).toBe(204);
+
+    const login = await request("/api/auth/login", {
+      method: "POST",
+      body: { email: "owner@test.dev", password: "password456" },
+    });
+    expect(login.status).toBe(200);
   });
 
   it("lets only one of two concurrent resets with the same token succeed", async () => {
