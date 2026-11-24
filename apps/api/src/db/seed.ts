@@ -186,6 +186,7 @@ const seedMonitor = async (seed: MonitorSeed, channelIds: string[]) => {
   });
 
   const latest = checks[0];
+  const firstHealthyIndex = checks.findIndex((check) => check.outcome === "up");
   const healthyChecks = checks.filter(
     (check) => check.outcome !== "down",
   ).length;
@@ -200,6 +201,11 @@ const seedMonitor = async (seed: MonitorSeed, channelIds: string[]) => {
       timeoutMs: seed.timeoutMs,
       expectedStatusCode: 200,
       isPaused: seed.isPaused,
+      consecutiveFailures: seed.isPaused
+        ? 0
+        : firstHealthyIndex === -1
+          ? checks.length
+          : firstHealthyIndex,
       status: seed.status,
       lastCheckedAt: latest?.checkedAt ?? null,
       lastResponseTimeMs: latest?.responseTimeMs ?? null,
@@ -314,13 +320,16 @@ for (const seed of monitorSeeds) {
 const { github } = await seedWebhooks(channelIds);
 const [publicApi, payments, legacy] = seededMonitors;
 
-if (publicApi && payments && legacy) {
+const [ownerUser, adminUser] = seededUsers;
+
+if (publicApi && payments && legacy && ownerUser && adminUser) {
   await db.insert(incidents).values([
     {
       sourceType: "monitor",
       sourceId: legacy.id,
       sourceName: legacy.name,
       status: "open",
+      severity: "critical",
       cause: "Connection timed out after 10000 ms",
       startedAt: minutesAgo(30),
     },
@@ -329,6 +338,7 @@ if (publicApi && payments && legacy) {
       sourceId: github.id,
       sourceName: github.name,
       status: "open",
+      severity: "critical",
       cause: "No events received within 1d",
       startedAt: minutesAgo(180),
     },
@@ -337,19 +347,42 @@ if (publicApi && payments && legacy) {
       sourceId: payments.id,
       sourceName: payments.name,
       status: "acknowledged",
+      severity: "warning",
       cause: "Response time above 800 ms",
       startedAt: minutesAgo(5),
       acknowledgedAt: minutesAgo(2),
+      acknowledgedById: adminUser.id,
+      acknowledgedByName: adminUser.name,
     },
     {
       sourceType: "monitor",
       sourceId: publicApi.id,
       sourceName: publicApi.name,
       status: "resolved",
+      severity: "critical",
       cause: "HTTP 503 Service Unavailable",
       startedAt: minutesAgo(45),
       acknowledgedAt: minutesAgo(43),
+      acknowledgedById: ownerUser.id,
+      acknowledgedByName: ownerUser.name,
       resolvedAt: minutesAgo(39),
+      resolutionReason: "recovered",
+    },
+    {
+      sourceType: "monitor",
+      sourceId: crypto.randomUUID(),
+      sourceName: "Old status page",
+      sourceDeletedAt: minutesAgo(2_000),
+      status: "resolved",
+      severity: "critical",
+      cause: "Expected HTTP 200, got 502",
+      startedAt: minutesAgo(2_900),
+      acknowledgedAt: minutesAgo(2_880),
+      acknowledgedById: adminUser.id,
+      acknowledgedByName: adminUser.name,
+      resolvedAt: minutesAgo(2_820),
+      resolvedById: adminUser.id,
+      resolvedByName: adminUser.name,
     },
   ]);
 }

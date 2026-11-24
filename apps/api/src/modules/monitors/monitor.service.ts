@@ -8,8 +8,9 @@ import { cacheKeys, invalidate } from "../../lib/cache.ts";
 import { notFound } from "../../lib/errors.ts";
 import { toLimitOffset, toPage } from "../../lib/pagination.ts";
 import {
-  removeIncidentsForSource,
+  closeIncidentsForSource,
   renameIncidentSource,
+  resolveIncidentForSource,
 } from "../incidents/incident.service.ts";
 import {
   deleteMonitor,
@@ -73,10 +74,17 @@ export const updateMonitorById = async (
     await renameIncidentSource(id, input.name);
   }
 
-  await invalidate(cacheKeys.dashboardSummary);
-
   const alertChannelIds =
     input.alertChannelIds ?? (await findChannelIdsForMonitor(id));
+
+  if (input.isPaused) {
+    await resolveIncidentForSource(
+      { type: "monitor", id, name: monitor.name, alertChannelIds },
+      "monitor_paused",
+    );
+  }
+
+  await invalidate(cacheKeys.dashboardSummary);
 
   return { ...monitor, alertChannelIds };
 };
@@ -88,7 +96,7 @@ export const removeMonitor = async (id: string) => {
     throw notFound(LABEL);
   }
 
-  await removeIncidentsForSource(id);
+  await closeIncidentsForSource(id);
 };
 
 export const getMonitorChecks = async (

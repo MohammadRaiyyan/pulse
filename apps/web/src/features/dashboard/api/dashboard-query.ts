@@ -15,8 +15,8 @@ export const dashboardSummaryQuery = queryOptions({
   meta: refreshOnMutation,
 });
 
-export const openIncidentsQuery = incidentResource.queries.list({
-  status: "open",
+export const activeIncidentsQuery = incidentResource.queries.list({
+  status: "active",
   page: 1,
   pageSize: RECENT_INCIDENTS_LIMIT,
 });

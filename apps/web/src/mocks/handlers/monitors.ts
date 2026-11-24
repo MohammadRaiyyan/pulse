@@ -1,5 +1,6 @@
 import {
   type CreateMonitorInput,
+  DEFAULT_FAILURE_THRESHOLD,
   type Monitor,
   type MonitorListQuery,
   type UpdateMonitorInput,
@@ -14,6 +15,7 @@ import { newId } from "../lib/ids";
 import {
   assertChannelsExist,
   channelLinkedSourceHooks,
+  resolveActiveIncident,
 } from "../lib/relations";
 import { now } from "../lib/time";
 
@@ -27,6 +29,8 @@ const toMonitor = (input: CreateMonitorInput): Monitor => {
     id: newId(),
     status: "pending",
     isPaused: false,
+    failureThreshold: input.failureThreshold ?? DEFAULT_FAILURE_THRESHOLD,
+    consecutiveFailures: 0,
     lastCheckedAt: null,
     lastResponseTimeMs: null,
     uptimePercent: null,
@@ -41,7 +45,17 @@ const applyMonitorUpdate = (
 ): Monitor => {
   assertChannelsExist(input.alertChannelIds);
 
-  return { ...monitor, ...input, updatedAt: now() };
+  if (input.isPaused) {
+    resolveActiveIncident(monitor.id, "monitor_paused");
+  }
+
+  return {
+    ...monitor,
+    ...input,
+    failureThreshold: input.failureThreshold ?? monitor.failureThreshold,
+    consecutiveFailures: input.isPaused ? 0 : monitor.consecutiveFailures,
+    updatedAt: now(),
+  };
 };
 
 const matchesSearch = (monitor: Monitor, search = "") =>

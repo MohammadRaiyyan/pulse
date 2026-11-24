@@ -1,9 +1,10 @@
-import type {
-  CheckOutcome,
-  CheckResult,
-  CreateMonitorInput,
-  Monitor,
-  MonitorStatus,
+import {
+  type CheckOutcome,
+  type CheckResult,
+  type CreateMonitorInput,
+  DEFAULT_FAILURE_THRESHOLD,
+  type Monitor,
+  type MonitorStatus,
 } from "@pulse/contracts";
 import { seedId } from "../lib/ids";
 import { minutesAgo } from "../lib/time";
@@ -126,12 +127,18 @@ export const seedMonitors = (channelIds: readonly string[]) =>
     const id = seedId(MONITOR_NAMESPACE, index + 1);
     const checks = buildChecks(id, index + 1, scenario);
     const latestCheck = checks[0];
+    const firstHealthyIndex = checks.findIndex(
+      (check) => check.outcome === "up",
+    );
 
     const monitor: Monitor = {
       ...scenario.input,
       id,
       status: scenario.status,
       isPaused: scenario.isPaused ?? false,
+      failureThreshold:
+        scenario.input.failureThreshold ?? DEFAULT_FAILURE_THRESHOLD,
+      consecutiveFailures: Math.max(firstHealthyIndex, 0),
       lastCheckedAt: latestCheck?.checkedAt ?? null,
       lastResponseTimeMs: latestCheck?.responseTimeMs ?? null,
       uptimePercent: calculateUptime(checks),

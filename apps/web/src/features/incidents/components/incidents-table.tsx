@@ -10,7 +10,10 @@ import { useCan } from "@/features/auth/hooks/use-can";
 import { formatRelativeTime } from "@/lib/format/date";
 import { formatDuration } from "@/lib/format/number";
 import { getIncidentDurationSeconds } from "../incident-duration";
+import { type IncidentView, incidentViewMeta } from "../incident-meta";
 import { IncidentActions } from "./incident-actions";
+import { IncidentActorNote } from "./incident-actor-note";
+import { IncidentSeverityBadge } from "./incident-severity-badge";
 import { IncidentSourceLink } from "./incident-source-link";
 import { IncidentStatusBadge } from "./incident-status-badge";
 
@@ -29,10 +32,21 @@ const useIncidentColumns = (): DataTableColumn<Incident>[] => [
     cell: (incident) => incident.cause,
   },
   {
+    id: "severity",
+    header: "Severity",
+    skeleton: <BadgeSkeleton />,
+    cell: (incident) => <IncidentSeverityBadge value={incident.severity} />,
+  },
+  {
     id: "status",
     header: "Status",
     skeleton: <BadgeSkeleton />,
-    cell: (incident) => <IncidentStatusBadge value={incident.status} />,
+    cell: (incident) => (
+      <div className="flex flex-col items-start gap-1">
+        <IncidentStatusBadge value={incident.status} />
+        <IncidentActorNote incident={incident} />
+      </div>
+    ),
   },
   {
     id: "started",
@@ -54,12 +68,14 @@ const useIncidentColumns = (): DataTableColumn<Incident>[] => [
   },
 ];
 
-export const IncidentsTable = ({
-  incidents,
-}: {
+type IncidentsTableProps = {
   incidents: readonly Incident[];
-}) => {
+  view: IncidentView;
+};
+
+export const IncidentsTable = ({ incidents, view }: IncidentsTableProps) => {
   const columns = useIncidentColumns();
+  const { emptyTitle, emptyDescription } = incidentViewMeta[view];
 
   return (
     <DataTable
@@ -69,8 +85,8 @@ export const IncidentsTable = ({
       emptyState={
         <EmptyState
           icon={ShieldCheckIcon}
-          title="No incidents"
-          description="Everything is operating normally."
+          title={emptyTitle}
+          description={emptyDescription}
         />
       }
     />

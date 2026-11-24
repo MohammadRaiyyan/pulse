@@ -1,5 +1,8 @@
+import { DEFAULT_FAILURE_THRESHOLD, MONITOR_LIMITS } from "@pulse/contracts";
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   pgTable,
@@ -26,6 +29,8 @@ export const monitors = pgTable(
     intervalSeconds: integer().notNull(),
     timeoutMs: integer().notNull(),
     expectedStatusCode: integer().notNull(),
+    failureThreshold: integer().notNull().default(DEFAULT_FAILURE_THRESHOLD),
+    consecutiveFailures: integer().notNull().default(0),
     isPaused: boolean().notNull().default(false),
     status: monitorStatusEnum().notNull().default("pending"),
     lastCheckedAt: timestamp({ withTimezone: true }),
@@ -36,6 +41,10 @@ export const monitors = pgTable(
   },
   (table) => [
     index("monitors_due_idx").on(table.isPaused, table.lastCheckedAt),
+    check(
+      "monitors_failure_threshold_range",
+      sql`${table.failureThreshold} between ${sql.raw(String(MONITOR_LIMITS.failureThreshold.min))} and ${sql.raw(String(MONITOR_LIMITS.failureThreshold.max))}`,
+    ),
   ],
 );
 

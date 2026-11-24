@@ -1,5 +1,8 @@
 import type {
+  IncidentActor,
   IncidentListQuery,
+  IncidentResolutionReason,
+  IncidentSeverity,
   IncidentSourceType,
   IncidentTransition,
 } from "@pulse/contracts";
@@ -10,7 +13,8 @@ import { logger } from "../../lib/logger.ts";
 import { toLimitOffset, toPage } from "../../lib/pagination.ts";
 import {
   applyTransition,
-  deleteIncidentsForSource,
+  closeIncidentsForDeletedSource,
+  escalateActiveIncident,
   findIncident,
   insertIncidentIfNoneActive,
   listIncidents,
@@ -56,8 +60,9 @@ export const getIncident = async (id: string) => {
 export const transitionIncident = async (
   id: string,
   transition: IncidentTransition,
+  actor: IncidentActor,
 ) => {
-  const updated = await applyTransition(id, transition);
+  const updated = await applyTransition(id, transition, actor);
 
   if (!updated) {
     const current = await getIncident(id);
@@ -71,16 +76,11 @@ export const transitionIncident = async (
   return updated;
 };
 
-export const openIncidentForSource = async (
+const escalateIncidentForSource = async (
   source: IncidentSource,
   cause: string,
 ) => {
-  const incident = await insertIncidentIfNoneActive({
-    sourceType: source.type,
-    sourceId: source.id,
-    sourceName: source.name,
-    cause,
-  });
+  const incident = await escalateActiveIncident(source.id, cause);
 
   if (!incident) {
     return;
@@ -88,35 +88,84 @@ export const openIncidentForSource = async (
 
   logger.info(
     { incidentId: incident.id, source: source.name, cause },
-    "Incident opened",
+    "Incident escalated to critical",
   );
   await invalidate(cacheKeys.dashboardSummary);
   await notifyChannels(source.alertChannelIds, "incident.opened", incident.id);
 };
 
-export const resolveIncidentForSource = async (source: IncidentSource) => {
-  const incident = await resolveActiveIncident(source.id);
+export const openIncidentForSource = async (
+  source: IncidentSource,
+  cause: string,
+  severity: IncidentSeverity = "critical",
+) => {
+  const incident = await insertIncidentIfNoneActive({
+    sourceType: source.type,
+    sourceId: source.id,
+    sourceName: source.name,
+    severity,
+    cause,
+  });
+
+  if (!incident) {
+    if (severity === "critical") {
+      await escalateIncidentForSource(source, cause);
+    }
+    return;
+  }
+
+  logger.info(
+    { incidentId: incident.id, source: source.name, cause, severity },
+    "Incident opened",
+  );
+  await invalidate(cacheKeys.dashboardSummary);
+
+  if (severity === "critical") {
+    await notifyChannels(
+      source.alertChannelIds,
+      "incident.opened",
+      incident.id,
+    );
+  }
+};
+
+export const resolveIncidentForSource = async (
+  source: IncidentSource,
+  reason: IncidentResolutionReason = "recovered",
+) => {
+  const incident = await resolveActiveIncident(source.id, reason);
 
   if (!incident) {
     return;
   }
 
   logger.info(
-    { incidentId: incident.id, source: source.name },
+    { incidentId: incident.id, source: source.name, reason },
     "Incident resolved",
   );
   await invalidate(cacheKeys.dashboardSummary);
-  await notifyChannels(
-    source.alertChannelIds,
-    "incident.resolved",
-    incident.id,
-  );
+
+  if (incident.severity === "critical" && reason === "recovered") {
+    await notifyChannels(
+      source.alertChannelIds,
+      "incident.resolved",
+      incident.id,
+    );
+  }
 };
 
 export const renameIncidentSource = (sourceId: string, name: string) =>
   renameIncidentsForSource(sourceId, name);
 
-export const removeIncidentsForSource = async (sourceId: string) => {
-  await deleteIncidentsForSource(sourceId);
+export const closeIncidentsForSource = async (sourceId: string) => {
+  const incident = await closeIncidentsForDeletedSource(sourceId);
+
+  if (incident) {
+    logger.info(
+      { incidentId: incident.id, source: incident.source.name },
+      "Incident resolved because its source was deleted",
+    );
+  }
+
   await invalidate(cacheKeys.dashboardSummary);
 };

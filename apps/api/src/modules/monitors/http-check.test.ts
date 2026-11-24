@@ -33,6 +33,8 @@ const monitorFor = (path: string, timeoutMs = 5000): MonitorRow => ({
   intervalSeconds: 60,
   timeoutMs,
   expectedStatusCode: 200,
+  failureThreshold: 2,
+  consecutiveFailures: 0,
   isPaused: false,
   status: "pending",
   lastCheckedAt: null,

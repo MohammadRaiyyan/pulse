@@ -1,4 +1,4 @@
-import { count, eq, sql } from "drizzle-orm";
+import { count, ne, sql } from "drizzle-orm";
 import { db } from "../../db/client.ts";
 import { incidents, monitors, webhooks } from "../../models/index.ts";
 
@@ -36,10 +36,20 @@ export const getActiveMonitorStats = async () => {
   return stats;
 };
 
-export const countOpenIncidents = async () => {
+export const countActiveIncidents = async () => {
   const [result] = await db
-    .select({ total: count() })
+    .select({
+      open: sql<number>`count(*) filter (where ${incidents.status} = 'open')`.mapWith(
+        Number,
+      ),
+      active: count(),
+      critical:
+        sql<number>`count(*) filter (where ${incidents.severity} = 'critical')`.mapWith(
+          Number,
+        ),
+    })
     .from(incidents)
-    .where(eq(incidents.status, "open"));
-  return result?.total ?? 0;
+    .where(ne(incidents.status, "resolved"));
+
+  return result ?? { open: 0, active: 0, critical: 0 };
 };

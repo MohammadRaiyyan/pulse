@@ -1,6 +1,5 @@
-import { incidentListQuerySchema } from "@pulse/contracts";
+import { paginationQuerySchema } from "@pulse/contracts";
 import { createFileRoute } from "@tanstack/react-router";
-import { FilterTabs } from "@/components/data/filter-tabs";
 import { PagedQueryView } from "@/components/data/paged-query-view";
 import {
   ContentSection,
@@ -9,37 +8,44 @@ import {
 import { Page } from "@/components/layout/page";
 import { guard } from "@/features/auth/guards";
 import { incidentResource } from "@/features/incidents/api/incident-resource";
+import { IncidentViewTabs } from "@/features/incidents/components/incident-view-tabs";
 import {
   IncidentsTable,
   IncidentsTableSkeleton,
 } from "@/features/incidents/components/incidents-table";
-import { incidentStatusOptions } from "@/features/incidents/incident-meta";
+import {
+  DEFAULT_INCIDENT_VIEW,
+  incidentViewSchema,
+  toIncidentStatusFilter,
+} from "@/features/incidents/incident-meta";
 import { useFilterNavigate } from "@/lib/router/use-filter-navigate";
 
+const incidentsSearchSchema = paginationQuerySchema.extend({
+  status: incidentViewSchema.default(DEFAULT_INCIDENT_VIEW),
+});
+
 const IncidentsPage = () => {
-  const search = Route.useSearch();
+  const { status, ...pagination } = Route.useSearch();
   const filter = useFilterNavigate();
 
   return (
     <Page title="Incidents">
       <ContentSection
         title="Incident log"
-        description="Outages and silent webhooks detected by Pulse."
+        description="Outages, slow responses and silent webhooks detected by Pulse."
       >
         <SectionActions>
-          <FilterTabs
-            label="Status"
-            value={search.status}
-            options={incidentStatusOptions}
-            onChange={(status) => filter({ status })}
+          <IncidentViewTabs
+            value={status}
+            onChange={(nextStatus) => filter({ status: nextStatus })}
           />
         </SectionActions>
         <PagedQueryView
           fallback={<IncidentsTableSkeleton />}
-          params={search}
+          params={{ ...pagination, status: toIncidentStatusFilter(status) }}
           query={incidentResource.queries.list}
         >
-          {(incidents) => <IncidentsTable incidents={incidents} />}
+          {(incidents) => <IncidentsTable incidents={incidents} view={status} />}
         </PagedQueryView>
       </ContentSection>
     </Page>
@@ -47,11 +53,16 @@ const IncidentsPage = () => {
 };
 
 export const Route = createFileRoute("/_app/incidents")({
-  validateSearch: incidentListQuerySchema,
+  validateSearch: incidentsSearchSchema,
   beforeLoad: guard("incident:read"),
   loaderDeps: ({ search }) => search,
-  loader: ({ context, deps }) => {
-    void context.queryClient.prefetchQuery(incidentResource.queries.list(deps));
+  loader: ({ context, deps: { status, ...pagination } }) => {
+    void context.queryClient.prefetchQuery(
+      incidentResource.queries.list({
+        ...pagination,
+        status: toIncidentStatusFilter(status),
+      }),
+    );
   },
   component: IncidentsPage,
 });

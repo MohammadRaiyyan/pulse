@@ -2,6 +2,8 @@ import {
   alertChannelTypeSchema,
   checkOutcomeSchema,
   httpMethodSchema,
+  incidentResolutionReasonSchema,
+  incidentSeveritySchema,
   incidentSourceTypeSchema,
   incidentStatusSchema,
   invitationStatusSchema,
@@ -45,4 +47,12 @@ export const incidentStatusEnum = pgEnum(
 export const incidentSourceTypeEnum = pgEnum(
   "incident_source_type",
   incidentSourceTypeSchema.enum,
+);
+export const incidentSeverityEnum = pgEnum(
+  "incident_severity",
+  incidentSeveritySchema.enum,
+);
+export const incidentResolutionReasonEnum = pgEnum(
+  "incident_resolution_reason",
+  incidentResolutionReasonSchema.enum,
 );

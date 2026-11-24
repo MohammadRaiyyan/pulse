@@ -73,6 +73,16 @@ export const MonitorForm = ({
             )}
           </form.AppField>
         </div>
+        <form.AppField name="failureThreshold">
+          {(field) => (
+            <field.NumberField
+              label="Failures before alerting"
+              description="Consecutive failed checks needed to open an incident and send alerts. Recovery resolves it on the first successful check."
+              min={MONITOR_LIMITS.failureThreshold.min}
+              max={MONITOR_LIMITS.failureThreshold.max}
+            />
+          )}
+        </form.AppField>
         <form.AppField name="alertChannelIds">
           {() => (
             <AlertChannelsField description="Who gets notified when this monitor goes down." />

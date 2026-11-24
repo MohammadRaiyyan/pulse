@@ -5,8 +5,24 @@ import { TableLink } from "@/components/data/table-link";
 const linkClassName = "flex items-center gap-2";
 const iconClassName = "size-4 text-muted-foreground";
 
-export const IncidentSourceLink = ({ source }: { source: IncidentSource }) =>
-  source.type === "monitor" ? (
+const DeletedSource = ({ source }: { source: IncidentSource }) => {
+  const Icon = source.type === "monitor" ? ActivityIcon : WebhookIcon;
+
+  return (
+    <span className={linkClassName}>
+      <Icon className={iconClassName} />
+      <span className="font-medium">{source.name}</span>
+      <span className="text-xs text-muted-foreground">(deleted)</span>
+    </span>
+  );
+};
+
+export const IncidentSourceLink = ({ source }: { source: IncidentSource }) => {
+  if (source.isDeleted) {
+    return <DeletedSource source={source} />;
+  }
+
+  return source.type === "monitor" ? (
     <TableLink
       to="/monitors/$monitorId"
       params={{ monitorId: source.id }}
@@ -25,3 +41,4 @@ export const IncidentSourceLink = ({ source }: { source: IncidentSource }) =>
       {source.name}
     </TableLink>
   );
+};

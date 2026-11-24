@@ -34,7 +34,10 @@ export const MONITOR_LIMITS = {
   intervalSeconds: { min: 30, max: 86_400 },
   timeoutMs: { min: 1_000, max: 30_000 },
   statusCode: { min: 100, max: 599 },
+  failureThreshold: { min: 1, max: 10 },
 } as const;
+
+export const DEFAULT_FAILURE_THRESHOLD = 2;
 
 export const createMonitorSchema = z.object({
   name: nameSchema,
@@ -43,6 +46,7 @@ export const createMonitorSchema = z.object({
   intervalSeconds: boundedIntSchema(MONITOR_LIMITS.intervalSeconds),
   timeoutMs: boundedIntSchema(MONITOR_LIMITS.timeoutMs),
   expectedStatusCode: boundedIntSchema(MONITOR_LIMITS.statusCode),
+  failureThreshold: boundedIntSchema(MONITOR_LIMITS.failureThreshold).optional(),
   alertChannelIds: z.array(idSchema),
 });
 
@@ -58,6 +62,8 @@ export const monitorSchema = createMonitorSchema.extend({
   id: idSchema,
   status: monitorStatusSchema,
   isPaused: z.boolean(),
+  failureThreshold: boundedIntSchema(MONITOR_LIMITS.failureThreshold),
+  consecutiveFailures: nonNegativeIntSchema,
   lastCheckedAt: timestampSchema.nullable(),
   lastResponseTimeMs: nonNegativeIntSchema.nullable(),
   uptimePercent: percentSchema.nullable(),

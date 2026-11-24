@@ -51,6 +51,8 @@ test.describe("monitors", () => {
     await dialog.getByLabel("Name").fill(name);
     await dialog.getByLabel("URL").fill(`${API_ORIGIN}/api/orders-missing`);
     await dialog.getByLabel("Interval (seconds)").fill("30");
+    await expect(dialog.getByLabel("Failures before alerting")).toHaveValue("2");
+    await dialog.getByLabel("Failures before alerting").fill("1");
     await dialog.getByLabel("On-call email").check();
     await dialog.getByRole("button", { name: "Create monitor" }).click();
 
@@ -70,6 +72,7 @@ test.describe("monitors", () => {
     await page.getByRole("button", { name: "Edit" }).click();
     const edit = page.getByRole("dialog");
     await expect(edit.getByLabel("On-call email")).toBeChecked();
+    await expect(edit.getByLabel("Failures before alerting")).toHaveValue("1");
     await edit.getByLabel("URL").fill(`${API_ORIGIN}/api/health`);
     await edit.getByRole("button", { name: /save/i }).click();
     await expect(edit).toBeHidden();

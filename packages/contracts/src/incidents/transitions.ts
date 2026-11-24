@@ -1,5 +1,11 @@
 import { z } from "zod";
-import type { Incident, IncidentStatus } from "./incident.ts";
+import {
+  type Incident,
+  type IncidentActor,
+  type IncidentStatus,
+  type IncidentStatusFilter,
+  activeIncidentStatuses,
+} from "./incident.ts";
 
 export const incidentTransitionSchema = z.enum(["acknowledge", "resolve"]);
 
@@ -27,9 +33,22 @@ export const applyIncidentTransition = (
   incident: Incident,
   transition: IncidentTransition,
   at: string,
+  actor: IncidentActor,
 ): Incident => ({
   ...incident,
   status: incidentTransitionRules[transition].to,
   acknowledgedAt: incident.acknowledgedAt ?? at,
+  acknowledgedBy: incident.acknowledgedBy ?? actor,
   resolvedAt: transition === "resolve" ? at : incident.resolvedAt,
+  resolvedBy: transition === "resolve" ? actor : incident.resolvedBy,
 });
+
+export const isActiveIncidentStatus = (status: IncidentStatus) =>
+  (activeIncidentStatuses as readonly IncidentStatus[]).includes(status);
+
+export const matchesIncidentStatusFilter = (
+  status: IncidentStatus,
+  filter: IncidentStatusFilter | undefined,
+) =>
+  filter === undefined ||
+  (filter === "active" ? isActiveIncidentStatus(status) : status === filter);

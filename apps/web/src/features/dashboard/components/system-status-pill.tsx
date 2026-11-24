@@ -18,7 +18,7 @@ export const SystemStatusPill = () => {
   return (
     <Link
       to="/incidents"
-      search={{ status: "open" }}
+      search={{ status: "active" }}
       className={cn(
         "inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-xs font-medium transition-opacity hover:opacity-80",
         toneStyles[health.tone].soft,

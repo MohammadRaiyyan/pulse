@@ -1,5 +1,6 @@
 import {
   endpoints,
+  isActiveIncidentStatus,
   monitorStatusSchema,
   webhookStatusSchema,
 } from "@pulse/contracts";
@@ -22,6 +23,9 @@ const buildSummary = () => {
   const monitors = [...db.monitors.values()];
   const activeMonitors = monitors.filter((monitor) => !monitor.isPaused);
   const webhooks = [...db.webhooks.values()];
+  const activeIncidents = [...db.incidents.values()].filter((incident) =>
+    isActiveIncidentStatus(incident.status),
+  );
 
   return {
     monitors: {
@@ -39,8 +43,12 @@ const buildSummary = () => {
         webhooks.map((webhook) => webhook.status),
       ),
     },
-    openIncidents: [...db.incidents.values()].filter(
+    openIncidents: activeIncidents.filter(
       (incident) => incident.status === "open",
+    ).length,
+    activeIncidents: activeIncidents.length,
+    criticalIncidents: activeIncidents.filter(
+      (incident) => incident.severity === "critical",
     ).length,
     averageResponseTimeMs: roundOrNull(
       average(

@@ -49,7 +49,7 @@ export const MonitorActions = ({ monitor }: { monitor: Monitor }) => (
       resource={monitorResource}
       id={monitor.id}
       name={monitor.name}
-      consequence="All check history and incidents for this monitor will be removed."
+      consequence="Its check history will be removed. Past incidents stay in the incident log, and an active incident is resolved."
       redirectTo="/monitors"
     />
   </Can>

@@ -21,29 +21,47 @@ export const checkMonitor = async (monitorId: string) => {
   }
 
   const measurement = await runHttpCheck(monitor);
-  await saveCheckResult(monitor.id, measurement);
+  const checked = await saveCheckResult(monitor.id, measurement);
+
+  if (!checked) {
+    return;
+  }
+
   await invalidate(cacheKeys.dashboardSummary);
 
   logger.debug(
-    { monitor: monitor.name, outcome: measurement.outcome },
+    {
+      monitor: monitor.name,
+      outcome: measurement.outcome,
+      consecutiveFailures: checked.consecutiveFailures,
+    },
     "Monitor checked",
   );
 
+  const isConfirmedFailure =
+    checked.consecutiveFailures >= checked.failureThreshold;
+
+  if (measurement.outcome !== "up" && !isConfirmedFailure) {
+    return;
+  }
+
   const source = {
     type: "monitor" as const,
-    id: monitor.id,
-    name: monitor.name,
-    alertChannelIds: await findChannelIdsForMonitor(monitor.id),
+    id: checked.id,
+    name: checked.name,
+    alertChannelIds: await findChannelIdsForMonitor(checked.id),
   };
 
   if (measurement.outcome === "up") {
     await resolveIncidentForSource(source);
-  } else {
-    await openIncidentForSource(
-      source,
-      measurement.errorMessage ?? `Monitor is ${measurement.outcome}`,
-    );
+    return;
   }
+
+  await openIncidentForSource(
+    source,
+    measurement.errorMessage ?? `Monitor is ${measurement.outcome}`,
+    measurement.outcome === "down" ? "critical" : "warning",
+  );
 };
 
 export const dispatchDueChecks = async () => {

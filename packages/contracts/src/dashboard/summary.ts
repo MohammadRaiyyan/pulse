@@ -14,6 +14,8 @@ export const dashboardSummarySchema = z.object({
     byStatus: z.record(webhookStatusSchema, nonNegativeIntSchema),
   }),
   openIncidents: nonNegativeIntSchema,
+  activeIncidents: nonNegativeIntSchema,
+  criticalIncidents: nonNegativeIntSchema,
   averageResponseTimeMs: nonNegativeIntSchema.nullable(),
   uptimePercent: percentSchema.nullable(),
 });
