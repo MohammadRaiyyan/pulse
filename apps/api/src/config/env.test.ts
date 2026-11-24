@@ -30,6 +30,16 @@ describe("environment validation", () => {
     expect(result.data?.METRICS_TOKEN).toBeUndefined();
   });
 
+  it("treats an empty migration URL as unset and validates a given one", () => {
+    expect(
+      parseEnv({ ...baseEnv, DATABASE_MIGRATION_URL: "" }).data
+        ?.DATABASE_MIGRATION_URL,
+    ).toBeUndefined();
+    expect(
+      issuePaths({ ...baseEnv, DATABASE_MIGRATION_URL: "not a url" }),
+    ).toContain("DATABASE_MIGRATION_URL");
+  });
+
   it("requires NODE_ENV", () => {
     expect(issuePaths({ ...baseEnv, NODE_ENV: undefined })).toContain(
       "NODE_ENV",
