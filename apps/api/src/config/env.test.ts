@@ -9,6 +9,8 @@ const baseEnv = {
   REDIS_URL: "redis://localhost:6379/0",
   JWT_SECRET: "a-production-jwt-secret-that-is-long-enough",
   INVITE_SECRET: "a-production-invite-secret-that-is-long-enough",
+  SMTP_HOST: "smtp.example.com",
+  MAIL_FROM: "Pulse <alerts@pulse.example.com>",
 };
 
 const issuePaths = (source: Record<string, string | undefined>) => {
@@ -42,6 +44,15 @@ describe("environment validation", () => {
   it("enforces secret length", () => {
     expect(issuePaths({ ...baseEnv, JWT_SECRET: "short" })).toContain(
       "JWT_SECRET",
+    );
+  });
+
+  it("requires SMTP delivery settings in production", () => {
+    const withoutMail = { ...baseEnv, SMTP_HOST: undefined, MAIL_FROM: undefined };
+
+    expect(issuePaths(withoutMail)).toEqual(expect.arrayContaining(["SMTP_HOST", "MAIL_FROM"]));
+    expect(issuePaths({ ...baseEnv, MAIL_TRANSPORT: "file", MAIL_FILE: "/tmp/mail.jsonl" })).toContain(
+      "MAIL_TRANSPORT",
     );
   });
 

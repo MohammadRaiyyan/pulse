@@ -59,11 +59,6 @@ const envSchema = z.object({
   WEBHOOK_MAX_EVENTS_PER_ENDPOINT: z.coerce.number().int().positive().default(1_000),
   LIVE_HEARTBEAT_INTERVAL_MS: z.coerce.number().int().positive().default(25_000),
   LIVE_MAX_CONNECTIONS_PER_USER: z.coerce.number().int().positive().default(5),
-});
-
-type Env = z.infer<typeof envSchema>;
-
-const productionRules = (values: Env, context: z.RefinementCtx) => {
   MAIL_TRANSPORT: z.enum(["smtp", "file"]).default("smtp"),
   MAIL_FILE: z.string().default(""),
   MAIL_FROM: z.string().default(""),
@@ -74,15 +69,14 @@ const productionRules = (values: Env, context: z.RefinementCtx) => {
   SMTP_PASSWORD: z.string().default(""),
 });
 
-const requireMailSettings = (
-  values: z.infer<typeof envSchema>,
-  context: z.RefinementCtx,
-) => {
-  const missing = (variable: string, message: string) =>
+type Env = z.infer<typeof envSchema>;
+
+const productionRules = (values: Env, context: z.RefinementCtx) => {
+  const invalid = (variable: string, message: string) =>
     context.addIssue({ code: "custom", path: [variable], message });
 
   if (values.MAIL_TRANSPORT === "file" && !values.MAIL_FILE) {
-    missing("MAIL_FILE", "MAIL_FILE is required when MAIL_TRANSPORT is file");
+    invalid("MAIL_FILE", "MAIL_FILE is required when MAIL_TRANSPORT is file");
   }
 
   if (values.NODE_ENV !== "production") {
@@ -90,21 +84,25 @@ const requireMailSettings = (
   }
 
   if (values.COOKIE_SECURE === false) {
-    context.addIssue({
-      code: "custom",
-      path: ["COOKIE_SECURE"],
-      message: "COOKIE_SECURE cannot be false in production",
-    });
+    invalid("COOKIE_SECURE", "COOKIE_SECURE cannot be false in production");
   }
 
   for (const key of ["JWT_SECRET", "INVITE_SECRET"] as const) {
     if (values[key].startsWith("replace-with")) {
-      context.addIssue({
-        code: "custom",
-        path: [key],
-        message: `${key} still has the example placeholder value`,
-      });
+      invalid(key, `${key} still has the example placeholder value`);
     }
+  }
+
+  if (values.MAIL_TRANSPORT !== "smtp") {
+    invalid("MAIL_TRANSPORT", "Production must send email over SMTP");
+  }
+
+  if (!values.SMTP_HOST) {
+    invalid("SMTP_HOST", "SMTP_HOST is required in production");
+  }
+
+  if (!values.MAIL_FROM) {
+    invalid("MAIL_FROM", "MAIL_FROM is required in production");
   }
 };
 
@@ -112,20 +110,6 @@ export const parseEnv = (source: Record<string, string | undefined>) =>
   envSchema.superRefine(productionRules).safeParse(source);
 
 const result = parseEnv(process.env);
-  if (values.MAIL_TRANSPORT !== "smtp") {
-    missing("MAIL_TRANSPORT", "Production must send email over SMTP");
-  }
-
-  if (!values.SMTP_HOST) {
-    missing("SMTP_HOST", "SMTP_HOST is required in production");
-  }
-
-  if (!values.MAIL_FROM) {
-    missing("MAIL_FROM", "MAIL_FROM is required in production");
-  }
-};
-
-const result = envSchema.superRefine(requireMailSettings).safeParse(process.env);
 
 if (!result.success) {
   console.error(

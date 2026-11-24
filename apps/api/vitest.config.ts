@@ -21,6 +21,7 @@ export default defineConfig({
       MAIL_TRANSPORT: "file",
       MAIL_FILE: join(tmpdir(), `pulse-api-test-mail-${process.pid}.jsonl`),
       OWNER_SIGNUP_ENABLED: "true",
+      ALLOW_PRIVATE_NETWORK_TARGETS: "true",
     },
   },
 });

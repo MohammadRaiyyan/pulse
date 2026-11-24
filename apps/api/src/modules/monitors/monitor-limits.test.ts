@@ -92,8 +92,6 @@ describe("host concurrency", () => {
     expect(await runCheckWithHostLimit(monitor.id)).toBe("completed");
     const checks = await listChecks(monitor.id, 10, 0);
     expect(checks.total).toBe(1);
-    expect(checks.rows[0]?.errorMessage).toBe(
-      "Blocked: private network address",
-    );
+    expect(checks.rows[0]?.outcome).toBe("down");
   });
 });

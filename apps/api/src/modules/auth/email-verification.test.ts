@@ -9,7 +9,7 @@ import {
 
 vi.mock("../../lib/mailer.ts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../lib/mailer.ts")>()),
-  sendEmail: vi.fn(),
+  sendEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
 useTestServer();

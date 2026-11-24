@@ -13,7 +13,7 @@ import {
   signInWithRole,
   useTestServer,
 } from "../../test/client.ts";
-import { readSentEmails, waitForEmail } from "../../test/mail.ts";
+import { clearSentEmails, readSentEmails, waitForEmail } from "../../test/mail.ts";
 import { insertPasswordResetToken } from "./password-reset.repository.ts";
 
 useTestServer();
@@ -254,6 +254,7 @@ describe("auth", () => {
 
   it("emails a working reset link and sends nothing for unknown addresses", async () => {
     await registerUser("Owner", "owner@test.dev");
+    await clearSentEmails();
 
     const unknown = await request("/api/auth/password/forgot", {
       method: "POST",
