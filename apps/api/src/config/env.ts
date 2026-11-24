@@ -47,6 +47,10 @@ const envSchema = z.object({
   API_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
   CHECK_DISPATCH_INTERVAL_MS: z.coerce.number().int().positive().default(15_000),
   SILENCE_CHECK_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
+  ALLOW_PRIVATE_NETWORK_TARGETS: z.stringbool().default(false),
+  MAX_MONITORS_PER_WORKSPACE: z.coerce.number().int().positive().default(100),
+  CHECK_WORKER_CONCURRENCY: z.coerce.number().int().positive().default(20),
+  CHECK_MAX_CONCURRENCY_PER_HOST: z.coerce.number().int().positive().default(4),
 });
 
 type Env = z.infer<typeof envSchema>;

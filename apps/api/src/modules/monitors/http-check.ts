@@ -1,4 +1,8 @@
-import { safeFetch } from "../../lib/outbound-http.ts";
+import {
+  OutboundRequestError,
+  type SafeFetch,
+  safeFetch,
+} from "../../lib/outbound-http.ts";
 import type { MonitorRow } from "../../models/index.ts";
 import type { CheckMeasurement } from "./monitor.repository.ts";
 
@@ -12,7 +16,7 @@ const describeFailure = (error: unknown, timeoutMs: number) => {
     return `Timed out after ${timeoutMs} ms`;
   }
 
-  if (error instanceof Error && error.message.startsWith("Refusing")) {
+  if (error instanceof OutboundRequestError) {
     return error.message;
   }
 
@@ -21,11 +25,12 @@ const describeFailure = (error: unknown, timeoutMs: number) => {
 
 export const runHttpCheck = async (
   monitor: MonitorRow,
+  fetcher: SafeFetch = safeFetch,
 ): Promise<CheckMeasurement> => {
   const startedAt = performance.now();
 
   try {
-    const response = await safeFetch(monitor.url, {
+    const response = await fetcher(monitor.url, {
       method: monitor.method,
       timeoutMs: monitor.timeoutMs,
       headers: { "User-Agent": "PulseMonitor/1.0" },

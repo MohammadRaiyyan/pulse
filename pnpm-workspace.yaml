@@ -59,6 +59,8 @@ catalog:
   "@types/cors": ^2.8.19
   "@playwright/test": 1.65.0
   prom-client: 15.1.3
+  undici: 8.12.4
+  ipaddr.js: 2.5.0
 
 minimumReleaseAgeExclude:
   - "@tanstack/query-core@5.108.0"

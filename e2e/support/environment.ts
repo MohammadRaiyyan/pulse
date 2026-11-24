@@ -17,6 +17,7 @@ export const backendEnvironment = {
   API_RATE_LIMIT_PER_MINUTE: "5000",
   CHECK_DISPATCH_INTERVAL_MS: "2000",
   SILENCE_CHECK_INTERVAL_MS: "5000",
+  ALLOW_PRIVATE_NETWORK_TARGETS: "true",
 };
 
 export const webEnvironment = {
