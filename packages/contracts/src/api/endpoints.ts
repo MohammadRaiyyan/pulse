@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   alertChannelSchema,
   alertChannelSigningSecretSchema,
+  alertChannelTypeCountsSchema,
   alertDeliverySchema,
   createAlertChannelSchema,
   updateAlertChannelSchema,
@@ -213,6 +214,12 @@ export const endpoints = {
     access: "webhook:read",
     query: webhookEventListQuerySchema,
     response: paginatedSchema(webhookEventSchema),
+  }),
+  countAlertChannelsByType: defineEndpoint({
+    method: "GET",
+    path: "/alert-channels/counts",
+    access: "alert-channel:read",
+    response: alertChannelTypeCountsSchema,
   }),
   testAlertChannel: defineEndpoint({
     method: "POST",

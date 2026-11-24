@@ -2,9 +2,9 @@ import type { Permission } from "@pulse/contracts";
 import type { LinkProps } from "@tanstack/react-router";
 import {
   ActivityIcon,
-  BellRingIcon,
   LayoutDashboardIcon,
   type LucideIcon,
+  PlugIcon,
   SirenIcon,
   UsersIcon,
   WebhookIcon,
@@ -47,9 +47,9 @@ export const navItems: readonly NavItem[] = [
     badge: ActiveIncidentsBadge,
   },
   {
-    title: "Alert channels",
-    to: "/alert-channels",
-    icon: BellRingIcon,
+    title: "Integrations",
+    to: "/integrations",
+    icon: PlugIcon,
     permission: "alert-channel:read",
   },
   { title: "Team", to: "/team", icon: UsersIcon, permission: "member:read" },

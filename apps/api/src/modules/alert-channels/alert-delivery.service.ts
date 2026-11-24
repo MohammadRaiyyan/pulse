@@ -1,39 +1,30 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
-import type { AlertChannelType, AlertEvent } from "@pulse/contracts";
-import { env } from "../../config/env.ts";
+import type { Response } from "undici";
 import type { AlertJobData } from "../../jobs/queues.ts";
 import { alertEmail } from "../../lib/email-templates.ts";
 import { logger } from "../../lib/logger.ts";
 import { isEmailDeliveryEnabled, sendEmail } from "../../lib/mailer.ts";
-import { safeFetch } from "../../lib/outbound-http.ts";
-import {
-  type IncidentRecord,
-  findIncident,
-} from "../incidents/incident.repository.ts";
+import { type SafeFetch, safeFetch } from "../../lib/outbound-http.ts";
+import { findIncident } from "../incidents/incident.repository.ts";
 import { findChannelForDelivery } from "./alert-channel.repository.ts";
 import { saveDeliveryAttempt } from "./alert-delivery.repository.ts";
-import { signatureHeaders } from "./webhook-signature.ts";
+import {
+  type Alert,
+  type AlertRequest,
+  type DeliveryChannel,
+  alertLink,
+  buildAlertRequests,
+  buildMessage,
+  buildSubject,
+} from "./alert-payloads.ts";
 
 export const DELIVERY_TIMEOUT_MS = 10_000;
 export const TEST_DELIVERY_TIMEOUT_MS = 5_000;
 
 const MAX_ERROR_LENGTH = 500;
 
-export type DeliveryChannel = {
-  id: string;
-  type: AlertChannelType;
-  target: string;
-  signingSecret: string;
-};
-
-type Alert = {
-  event: AlertEvent;
-  incident: IncidentRecord | undefined;
-};
-
 type DeliveryAttemptInput = Alert & {
-  deliveryId: string;
   channel: DeliveryChannel;
   attempt: number;
   isFinalAttempt: boolean;
@@ -43,34 +34,6 @@ type DeliveryAttemptInput = Alert & {
 type JobAttempt = {
   attempt: number;
   maxAttempts: number;
-};
-
-const buildMessage = ({ event, incident }: Alert) => {
-  if (event === "test") {
-    return "Test alert from Pulse. This channel is working.";
-  }
-
-  if (!incident) {
-    return `Pulse alert: ${event}`;
-  }
-
-  if (event === "incident.opened") {
-    return `[Incident] ${incident.source.name}: ${incident.cause}`;
-  }
-
-  return `[Resolved] ${incident.source.name} recovered`;
-};
-
-const buildSubject = ({ event, incident }: Alert) => {
-  if (event === "test") {
-    return "Pulse test alert";
-  }
-
-  const name = incident?.source.name ?? "a source";
-
-  return event === "incident.opened"
-    ? `[Incident] ${name} is failing`
-    : `[Resolved] ${name} recovered`;
 };
 
 const withTimeout = async <T>(work: Promise<T>, timeoutMs: number) => {
@@ -88,33 +51,52 @@ const withTimeout = async <T>(work: Promise<T>, timeoutMs: number) => {
   }
 };
 
+const receiverErrorMessage = async (response: Response) => {
+  const text = await response.text().catch(() => "");
+
+  try {
+    const parsed: unknown = JSON.parse(text);
+
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "message" in parsed &&
+      typeof parsed.message === "string"
+    ) {
+      return `: ${parsed.message}`;
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+};
+
 const postJson = async (
-  url: string,
-  body: string,
-  headers: Record<string, string>,
+  fetcher: SafeFetch,
+  request: AlertRequest,
   timeoutMs: number,
 ) => {
-  const response = await safeFetch(url, {
+  const response = await fetcher(request.url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "User-Agent": "PulseAlerts/1.0",
-      ...headers,
+      ...request.headers,
     },
-    body,
+    body: request.body,
     timeoutMs,
   });
 
   if (!response.ok) {
-    throw new Error(`Receiver answered with HTTP ${response.status}`);
+    const detail = await receiverErrorMessage(response);
+    throw new Error(`Receiver answered with HTTP ${response.status}${detail}`);
   }
+
+  await response.body?.cancel();
 };
 
-const sendAlertEmail = async (
-  to: string,
-  alert: Alert,
-  timeoutMs: number,
-) => {
+const sendAlertEmail = async (to: string, alert: Alert, timeoutMs: number) => {
   if (!isEmailDeliveryEnabled) {
     throw new Error("Email delivery is not configured on this server");
   }
@@ -122,7 +104,7 @@ const sendAlertEmail = async (
   const content = alertEmail({
     subject: buildSubject(alert),
     message: buildMessage(alert),
-    detailsUrl: new URL(alert.incident ? "/incidents" : "/", env.APP_URL).href,
+    detailsUrl: alertLink(alert),
   });
 
   await withTimeout(sendEmail({ to, ...content }), timeoutMs);
@@ -132,31 +114,18 @@ export const deliverToChannel = async (
   channel: DeliveryChannel,
   alert: Alert,
   timeoutMs: number,
+  fetcher: SafeFetch = safeFetch,
 ) => {
   if (channel.type === "email") {
     await sendAlertEmail(channel.target, alert, timeoutMs);
     return;
   }
 
-  if (channel.type === "slack") {
-    const body = JSON.stringify({ text: buildMessage(alert) });
-    await postJson(channel.target, body, {}, timeoutMs);
-    return;
+  const deadline = Date.now() + timeoutMs;
+
+  for (const request of buildAlertRequests(channel, alert)) {
+    await postJson(fetcher, request, Math.max(deadline - Date.now(), 1));
   }
-
-  const body = JSON.stringify({
-    event: alert.event,
-    message: buildMessage(alert),
-    incident: alert.incident ?? null,
-    sentAt: new Date().toISOString(),
-  });
-
-  await postJson(
-    channel.target,
-    body,
-    signatureHeaders(channel.signingSecret, body),
-    timeoutMs,
-  );
 };
 
 export const describeDeliveryError = (error: unknown) => {

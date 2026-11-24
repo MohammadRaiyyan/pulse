@@ -16,8 +16,8 @@ test.describe("role-based UI", () => {
     await goTo(page, "Incidents");
     await expect(page.getByRole("button", { name: "Acknowledge" })).toHaveCount(0);
 
-    await goTo(page, "Alert channels");
-    await expect(page.getByRole("button", { name: "New channel" })).toHaveCount(0);
+    await goTo(page, "Integrations");
+    await expect(page.getByRole("button", { name: /^Connect / })).toHaveCount(0);
     await expect(page.getByLabel("Toggle On-call email")).toBeDisabled();
 
     await goTo(page, "Team");
@@ -34,8 +34,8 @@ test.describe("role-based UI", () => {
     await goTo(page, "Webhooks");
     await expect(page.getByRole("button", { name: "New endpoint" }).first()).toBeVisible();
 
-    await goTo(page, "Alert channels");
-    await expect(page.getByRole("button", { name: "New channel" })).toHaveCount(0);
+    await goTo(page, "Integrations");
+    await expect(page.getByRole("button", { name: /^Connect / })).toHaveCount(0);
     await expect(page.getByLabel("Toggle On-call email")).toBeDisabled();
 
     await goTo(page, "Team");

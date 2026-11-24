@@ -11,6 +11,7 @@ import {
   invitationStatusSchema,
   monitorStatusSchema,
   oauthProviderSchema,
+  opsgenieRegionSchema,
   roleSchema,
   webhookStatusSchema,
 } from "@pulse/contracts";
@@ -28,6 +29,10 @@ export const invitationStatusEnum = pgEnum(
 export const alertChannelTypeEnum = pgEnum(
   "alert_channel_type",
   alertChannelTypeSchema.enum,
+);
+export const opsgenieRegionEnum = pgEnum(
+  "opsgenie_region",
+  opsgenieRegionSchema.enum,
 );
 export const alertEventEnum = pgEnum("alert_event", alertEventSchema.enum);
 export const alertDeliveryStatusEnum = pgEnum(

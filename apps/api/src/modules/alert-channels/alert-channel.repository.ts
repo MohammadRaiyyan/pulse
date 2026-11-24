@@ -1,8 +1,17 @@
-import type { AlertChannelType } from "@pulse/contracts";
-import { and, count, desc, eq } from "drizzle-orm";
+import {
+  type AlertChannelType,
+  MASKED_SECRET_PREFIX,
+  type OpsgenieRegion,
+  secretAlertChannelTypes,
+} from "@pulse/contracts";
+import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../db/client.ts";
 import { alertChannels } from "../../models/index.ts";
 import { findLatestDeliveries } from "./alert-delivery.repository.ts";
+
+const hasSecretTarget = inArray(alertChannels.type, [
+  ...secretAlertChannelTypes,
+]);
 
 const alertChannelColumns = {
   id: alertChannels.id,
@@ -10,7 +19,9 @@ const alertChannelColumns = {
   isEnabled: alertChannels.isEnabled,
   destination: {
     type: alertChannels.type,
-    target: alertChannels.target,
+    target: sql<string>`case when ${hasSecretTarget} then ${MASKED_SECRET_PREFIX} || right(${alertChannels.target}, 4) else ${alertChannels.target} end`,
+    region: alertChannels.region,
+    isMasked: sql<boolean>`${hasSecretTarget}`,
   },
   createdAt: alertChannels.createdAt,
 };
@@ -20,6 +31,7 @@ type AlertChannelValues = {
   isEnabled: boolean;
   type: AlertChannelType;
   target: string;
+  region: OpsgenieRegion | null;
 };
 
 type ChannelRow = { id: string };
@@ -54,6 +66,13 @@ export const listAlertChannels = async (limit: number, offset: number) => {
   return { rows: await withLastDelivery(rows), total: totalRow?.total ?? 0 };
 };
 
+export const countAlertChannelsByType = () =>
+  db
+    .select({ type: alertChannels.type, count: count() })
+    .from(alertChannels)
+    .groupBy(alertChannels.type)
+    .orderBy(alertChannels.type);
+
 export const findAlertChannel = async (id: string) => {
   const rows = await db
     .select(alertChannelColumns)
@@ -70,6 +89,7 @@ export const findChannelForDelivery = async (id: string) => {
       isEnabled: alertChannels.isEnabled,
       type: alertChannels.type,
       target: alertChannels.target,
+      region: alertChannels.region,
       signingSecret: alertChannels.signingSecret,
     })
     .from(alertChannels)
@@ -85,7 +105,10 @@ export const findSigningSecret = async (id: string) => {
   return secret;
 };
 
-export const updateSigningSecret = async (id: string, signingSecret: string) => {
+export const updateSigningSecret = async (
+  id: string,
+  signingSecret: string,
+) => {
   const [secret] = await db
     .update(alertChannels)
     .set({ signingSecret })

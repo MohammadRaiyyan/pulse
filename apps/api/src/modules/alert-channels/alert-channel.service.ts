@@ -1,13 +1,17 @@
 import { randomUUID } from "node:crypto";
-import type {
-  CreateAlertChannelInput,
-  PaginationQuery,
-  UpdateAlertChannelInput,
+import {
+  type AlertDestination,
+  type AlertDestinationUpdate,
+  type CreateAlertChannelInput,
+  type PaginationQuery,
+  type UpdateAlertChannelInput,
+  isMaskedSecret,
 } from "@pulse/contracts";
-import { conflict, notFound } from "../../lib/errors.ts";
+import { badRequest, conflict, notFound } from "../../lib/errors.ts";
 import { toLimitOffset, toPage } from "../../lib/pagination.ts";
 import { publishChange } from "../../lib/realtime.ts";
 import {
+  countAlertChannelsByType,
   deleteAlertChannel,
   findAlertChannel,
   findChannelForDelivery,
@@ -32,6 +36,8 @@ export const getAlertChannels = async (query: PaginationQuery) => {
   return toPage(rows, total, query);
 };
 
+export const getAlertChannelCounts = () => countAlertChannelsByType();
+
 export const getAlertChannel = async (id: string) => {
   const channel = await findAlertChannel(id);
 
@@ -42,12 +48,52 @@ export const getAlertChannel = async (id: string) => {
   return channel;
 };
 
+const regionOf = (destination: AlertDestination | AlertDestinationUpdate) =>
+  destination.type === "opsgenie" ? destination.region : null;
+
+const keepsStoredTarget = (target: string | undefined) =>
+  target === undefined || isMaskedSecret(target);
+
+const destinationChanges = async (
+  id: string,
+  destination: AlertDestinationUpdate | undefined,
+) => {
+  if (!destination) {
+    return {};
+  }
+
+  const values = {
+    type: destination.type,
+    target: destination.target,
+    region: regionOf(destination),
+  };
+
+  if (!keepsStoredTarget(values.target)) {
+    return values;
+  }
+
+  const stored = await findChannelForDelivery(id);
+
+  if (!stored) {
+    throw notFound(LABEL);
+  }
+
+  if (stored.type !== destination.type) {
+    throw badRequest("Some fields are invalid", {
+      destination: ["Enter the new credentials when changing the channel type"],
+    });
+  }
+
+  return { ...values, target: undefined };
+};
+
 export const createAlertChannel = async (input: CreateAlertChannelInput) => {
   const channel = await insertAlertChannel({
     name: input.name,
     isEnabled: input.isEnabled,
     type: input.destination.type,
     target: input.destination.target,
+    region: regionOf(input.destination),
   });
   publishChange({ type: "alertChannel.updated", id: channel.id });
 
@@ -61,8 +107,7 @@ export const updateAlertChannelById = async (
   const channel = await updateAlertChannel(id, {
     name: input.name,
     isEnabled: input.isEnabled,
-    type: input.destination?.type,
-    target: input.destination?.target,
+    ...(await destinationChanges(id, input.destination)),
   });
 
   if (!channel) {
